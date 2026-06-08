@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inspection Station</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg:       #0a0c0f;
+    --panel:    #0f1318;
+    --border:   #1e2830;
+    --accent:   #00e5ff;
+    --warn:     #ff9100;
+    --ok:       #00e676;
+    --danger:   #ff1744;
+    --dim:      #3a4a55;
+    --text:     #c8d8e0;
+    --mono:     'Share Tech Mono', monospace;
+    --sans:     'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  header .title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  header .title span { color: var(--dim); font-weight: 300; }
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--dim);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--danger);
+    box-shadow: 0 0 6px var(--danger);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+
+  /* ── Layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto 1fr;
+    gap: 1px;
+    background: var(--border);
+    height: calc(100vh - 45px);
+  }
+
+  /* ── Video panel ── */
+  .video-panel {
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    grid-row: 1 / 3;
+    position: relative;
+  }
+  .video-toolbar {
+    display: flex; gap: 6px; padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    align-items: center;
+  }
+  .btn {
+    font-family: var(--sans); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 5px 14px; border: 1px solid var(--dim);
+    background: transparent; color: var(--dim); cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.06); }
+  .btn.action { border-color: var(--warn); color: var(--warn); }
+  .btn.action:hover { background: rgba(255,145,0,0.08); }
+
+  .video-wrap {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; background: #050709;
+    position: relative;
+  }
+  .video-wrap img {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .fps-badge {
+    position: absolute; bottom: 10px; right: 10px;
+    font-family: var(--mono); font-size: 10px; color: var(--dim);
+    background: rgba(0,0,0,0.6); padding: 2px 8px;
+    border: 1px solid var(--border);
+  }
+
+  /* ── Side panels ── */
+  .side {
+    background: var(--panel);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    border-left: 1px solid var(--border);
+  }
+
+  .panel-header {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--dim);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .panel-header .badge {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--accent); border: 1px solid var(--accent);
+    padding: 1px 6px;
+  }
+
+  /* ── Metrics grid ── */
+  .metrics {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1px; background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .metric {
+    background: var(--panel); padding: 10px 14px;
+  }
+  .metric .label {
+    font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 4px;
+  }
+  .metric .value {
+    font-family: var(--mono); font-size: 20px; color: var(--accent);
+    line-height: 1;
+  }
+  .metric .value.warn { color: var(--warn); }
+  .metric .value.ok { color: var(--ok); }
+  .metric .sub {
+    font-family: var(--mono); font-size: 10px; color: var(--dim); margin-top: 2px;
+  }
+
+  /* ── Controls ── */
+  .controls { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .control-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .control-row:last-child { margin-bottom: 0; }
+  .control-label {
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--dim); width: 80px; flex-shrink: 0;
+  }
+  input[type=range] {
+    flex: 1; height: 3px; accent-color: var(--accent);
+    cursor: pointer; background: var(--border);
+  }
+  .control-val {
+    font-family: var(--mono); font-size: 12px; color: var(--text);
+    width: 36px; text-align: right; flex-shrink: 0;
+  }
+
+  /* ── Unit toggle ── */
+  .unit-toggle { display: flex; gap: 1px; background: var(--border); }
+  .unit-btn {
+    flex: 1; padding: 5px; text-align: center;
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: var(--panel); color: var(--dim);
+    cursor: pointer; border: none;
+    transition: all 0.15s;
+  }
+  .unit-btn.active { background: rgba(0,229,255,0.1); color: var(--accent); }
+
+  /* ── Calibration panel ── */
+  .cal-section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .cal-row { display: flex; gap: 6px; margin-top: 8px; }
+  .cal-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 12px;
+    padding: 5px 8px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .cal-input:focus { border-color: var(--accent); }
+  .cal-input::placeholder { color: var(--dim); }
+  select.cal-input { cursor: pointer; }
+
+  /* ── Contour table ── */
+  .contour-list {
+    flex: 1; overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    position: sticky; top: 0; z-index: 1;
+    background: #0d1117; padding: 6px 8px;
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--dim); text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid rgba(30,40,48,0.6); }
+  tbody tr:hover { background: rgba(0,229,255,0.03); }
+  tbody td {
+    padding: 5px 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--text);
+  }
+  .depth-pip {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 4px; vertical-align: middle;
+  }
+  .empty-state {
+    text-align: center; padding: 30px 14px;
+    font-size: 11px; color: var(--dim); letter-spacing: 0.1em;
+  }
+
+  /* ── Cal status bar ── */
+  .cal-status {
+    padding: 6px 14px; border-top: 1px solid var(--border);
+    font-family: var(--mono); font-size: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .cal-status.calibrated { color: var(--ok); }
+  .cal-status.uncalibrated { color: var(--warn); }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--accent);
+    color: var(--accent); font-family: var(--mono); font-size: 12px;
+    padding: 8px 20px; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s; z-index: 100;
+  }
+  #toast.show { opacity: 1; }
+  #toast.error { border-color: var(--danger); color: var(--danger); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">Metrology <span>/ Inspection Station</span></div>
+  <div class="status-pill">
+    <div class="dot" id="liveDot"></div>
+    <span id="liveLabel">CONNECTING</span>
+    &nbsp;|&nbsp;
+    <span id="uptimeLabel">—</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── VIDEO ── -->
+  <div class="video-panel">
+    <div class="video-toolbar">
+      <button class="btn active" id="btnAnnotated" onclick="setStream('annotated')">Annotated</button>
+      <button class="btn" id="btnEdges" onclick="setStream('edges')">Edges</button>
+      <div style="flex:1"></div>
+      <button class="btn action" onclick="takeSnapshot()">⬇ Snapshot</button>
+    </div>
+    <div class="video-wrap">
+      <img id="videoFeed" src="/stream" alt="Camera Feed">
+      <div class="fps-badge" id="fpsBadge">— fps</div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT TOP: METRICS + CONTROLS ── -->
+  <div class="side" style="border-bottom:1px solid var(--border);">
+    <!-- Metrics -->
+    <div class="metrics">
+      <div class="metric">
+        <div class="label">Contours</div>
+        <div class="value" id="mContours">—</div>
+      </div>
+      <div class="metric">
+        <div class="label">Pipeline</div>
+        <div class="value" id="mPipeline">—</div>
+        <div class="sub">ms</div>
+      </div>
+      <div class="metric">
+        <div class="label">Stage</div>
+        <div class="value" id="mStage">—</div>
+      </div>
+      <div class="metric">
+        <div class="label">Unit</div>
+        <div class="value" id="mUnit" style="font-size:16px">—</div>
+      </div>
+    </div>
+
+    <!-- Unit toggle -->
+    <div style="padding:10px 14px 6px; border-bottom:1px solid var(--border)">
+      <div class="panel-header" style="padding:0 0 8px 0">Display Unit</div>
+      <div class="unit-toggle">
+        <button class="unit-btn active" id="unitIn" onclick="setUnit('inches')">inches</button>
+        <button class="unit-btn" id="unitMm" onclick="setUnit('mm')">mm</button>
+      </div>
+    </div>
+
+    <!-- Canny controls -->
+    <div class="controls">
+      <div class="panel-header" style="padding:0 0 10px 0">Canny Thresholds</div>
+      <div class="control-row">
+        <span class="control-label">Low</span>
+        <input type="range" id="cannyLow" min="0" max="255" value="50"
+               oninput="cannyChanged()">
+        <span class="control-val" id="cannyLowVal">50</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">High</span>
+        <input type="range" id="cannyHigh" min="0" max="255" value="150"
+               oninput="cannyChanged()">
+        <span class="control-val" id="cannyHighVal">150</span>
+      </div>
+    </div>
+
+    <!-- Calibration -->
+    <div class="cal-section">
+      <div class="panel-header" style="padding:0 0 10px 0">
+        Spatial Calibration
+        <span id="calBadge" class="badge" style="color:var(--warn);border-color:var(--warn)">UNCAL</span>
+      </div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.5;margin-bottom:6px">
+        Measure a reference object in the snapshot, enter the pixel distance and known real size.
+      </div>
+      <div class="control-row">
+        <span class="control-label">Px dist</span>
+        <input type="number" class="cal-input" id="calPx" placeholder="pixels" min="1">
+      </div>
+      <div class="cal-row">
+        <input type="number" class="cal-input" id="calReal" placeholder="real size" min="0.001" step="0.001">
+        <select class="cal-input" id="calUnit" style="max-width:70px">
+          <option value="mm">mm</option>
+          <option value="in">in</option>
+        </select>
+      </div>
+      <div class="cal-row">
+        <button class="btn action" style="width:100%;text-align:center" onclick="submitCalibration()">
+          Apply Calibration
+        </button>
+      </div>
+    </div>
+
+    <div class="cal-status uncalibrated" id="calStatus">
+      ○ NOT CALIBRATED — measurements in pixels
+    </div>
+  </div>
+
+  <!-- ── RIGHT BOTTOM: CONTOUR TABLE ── -->
+  <div class="side" style="grid-row:2">
+    <div class="panel-header">
+      Contours
+      <span class="badge" id="contourBadge">0</span>
+    </div>
+    <div class="contour-list" id="contourList">
+      <div class="empty-state">Waiting for data…</div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const POLL_RESULTS_MS  = 500;
+const POLL_STATUS_MS   = 2000;
+const CANNY_DEBOUNCE   = 600;
+
+const DEPTH_COLORS = ['#00e676','#00e5ff','#ff9100','#ff1744'];
+
+// ── State ────────────────────────────────────────────────────────────────────
+let currentUnit = 'inches';
+let cannyTimer  = null;
+let frameCount  = 0;
+let lastFpsTime = Date.now();
+let serverStart = null;
+
+// ── Stream toggle ─────────────────────────────────────────────────────────
+function setStream(mode) {
+  const img = document.getElementById('videoFeed');
+  img.src = mode === 'edges' ? '/stream/edges' : '/stream';
+  document.getElementById('btnAnnotated').classList.toggle('active', mode === 'annotated');
+  document.getElementById('btnEdges').classList.toggle('active', mode === 'edges');
+}
+
+// Track stream FPS
+document.getElementById('videoFeed').addEventListener('load', () => {
+  frameCount++;
+  const now = Date.now();
+  if (now - lastFpsTime >= 1000) {
+    document.getElementById('fpsBadge').textContent = frameCount + ' fps';
+    frameCount = 0;
+    lastFpsTime = now;
+  }
+});
+
+// ── Unit toggle ───────────────────────────────────────────────────────────
+function setUnit(unit) {
+  fetch('/api/unit/' + unit).then(r => r.json()).then(d => {
+    currentUnit = d.unit;
+    document.getElementById('unitIn').classList.toggle('active', unit === 'inches');
+    document.getElementById('unitMm').classList.toggle('active', unit === 'mm');
+    document.getElementById('mUnit').textContent = unit === 'inches' ? 'IN' : 'MM';
+    toast('Unit: ' + unit);
+  });
+}
+
+// ── Canny controls ────────────────────────────────────────────────────────
+function cannyChanged() {
+  const low  = document.getElementById('cannyLow').value;
+  const high = document.getElementById('cannyHigh').value;
+  document.getElementById('cannyLowVal').textContent  = low;
+  document.getElementById('cannyHighVal').textContent = high;
+  clearTimeout(cannyTimer);
+  cannyTimer = setTimeout(() => {
+    fetch('/api/canny', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ low: parseInt(low), high: parseInt(high) })
+    });
+  }, CANNY_DEBOUNCE);
+}
+
+// ── Calibration ───────────────────────────────────────────────────────────
+function submitCalibration() {
+  const px   = parseFloat(document.getElementById('calPx').value);
+  const real = parseFloat(document.getElementById('calReal').value);
+  const unit = document.getElementById('calUnit').value;
+
+  if (!px || !real || px <= 0 || real <= 0) {
+    toast('Enter valid pixel distance and real size', true);
+    return;
+  }
+
+  fetch('/api/calibrate/spatial', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ px_dist: px, real_dist: real, unit: unit })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.calibrated) {
+      const ppm = d.px_per_mm.toFixed(3);
+      const ppi = d.px_per_inch.toFixed(3);
+      toast(`Calibrated: ${ppm} px/mm`);
+      updateCalStatus(true, d.px_per_mm, d.px_per_inch);
+    } else {
+      toast(d.error || 'Calibration failed', true);
+    }
+  });
+}
+
+function updateCalStatus(calibrated, ppm, ppi) {
+  const el    = document.getElementById('calStatus');
+  const badge = document.getElementById('calBadge');
+  if (calibrated && ppm) {
+    el.className   = 'cal-status calibrated';
+    el.textContent = `✓ ${ppm.toFixed(4)} px/mm  ·  ${(ppm/25.4).toFixed(4)} px/in`;
+    badge.textContent = 'CAL';
+    badge.style.color = 'var(--ok)';
+    badge.style.borderColor = 'var(--ok)';
+  } else {
+    el.className   = 'cal-status uncalibrated';
+    el.textContent = '○ NOT CALIBRATED — measurements in pixels';
+    badge.textContent = 'UNCAL';
+    badge.style.color = 'var(--warn)';
+    badge.style.borderColor = 'var(--warn)';
+  }
+}
+
+// ── Snapshot ─────────────────────────────────────────────────────────────
+function takeSnapshot() {
+  const a = document.createElement('a');
+  a.href = '/api/snapshot';
+  a.download = '';
+  a.click();
+}
+
+// ── Status poll ──────────────────────────────────────────────────────────
+function pollStatus() {
+  fetch('/api/status')
+    .then(r => r.json())
+    .then(d => {
+      const dot   = document.getElementById('liveDot');
+      const label = document.getElementById('liveLabel');
+      if (d.ok && d.camera_open) {
+        dot.className = 'dot live';
+        label.textContent = 'LIVE';
+      } else {
+        dot.className = 'dot warn';
+        label.textContent = d.ok ? 'CAM ERR' : 'OFFLINE';
+      }
+
+      if (!serverStart) serverStart = Date.now() - d.uptime_s * 1000;
+      const up = Math.floor((Date.now() - serverStart) / 1000);
+      const h = String(Math.floor(up/3600)).padStart(2,'0');
+      const m = String(Math.floor((up%3600)/60)).padStart(2,'0');
+      const s = String(up%60).padStart(2,'0');
+      document.getElementById('uptimeLabel').textContent = `${h}:${m}:${s}`;
+
+      document.getElementById('mStage').textContent = 'S' + d.stage;
+      document.getElementById('mUnit').textContent  = d.default_unit === 'inches' ? 'IN' : 'MM';
+
+      document.getElementById('cannyLow').value  = d.canny_low;
+      document.getElementById('cannyHigh').value = d.canny_high;
+      document.getElementById('cannyLowVal').textContent  = d.canny_low;
+      document.getElementById('cannyHighVal').textContent = d.canny_high;
+
+      currentUnit = d.default_unit;
+      document.getElementById('unitIn').classList.toggle('active', d.default_unit === 'inches');
+      document.getElementById('unitMm').classList.toggle('active', d.default_unit === 'mm');
+
+      updateCalStatus(d.calibrated, d.px_per_mm, d.px_per_inch);
+    })
+    .catch(() => {
+      document.getElementById('liveDot').className = 'dot';
+      document.getElementById('liveLabel').textContent = 'OFFLINE';
+    });
+}
+
+// ── Results poll ─────────────────────────────────────────────────────────
+function pollResults() {
+  fetch('/api/results')
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) return;
+
+      document.getElementById('mContours').textContent = d.contour_count;
+      document.getElementById('contourBadge').textContent = d.contour_count;
+      document.getElementById('mPipeline').textContent = d.pipeline_ms.toFixed(1);
+
+      renderContours(d.contours, d.calibrated);
+    })
+    .catch(() => {});
+}
+
+function renderContours(contours, calibrated) {
+  const list = document.getElementById('contourList');
+
+  if (!contours || contours.length === 0) {
+    list.innerHTML = '<div class="empty-state">No contours detected</div>';
+    return;
+  }
+
+  const unitLabel = currentUnit === 'inches' ? 'in' : 'mm';
+
+  let rows = '';
+  for (const c of contours) {
+    const color = DEPTH_COLORS[Math.min(c.depth, DEPTH_COLORS.length - 1)];
+    const pip   = `<span class="depth-pip" style="background:${color}"></span>`;
+
+    let wStr, hStr;
+    if (calibrated && currentUnit === 'inches' && c.bbox_in) {
+      wStr = c.bbox_in.w.toFixed(4) + '"';
+      hStr = c.bbox_in.h.toFixed(4) + '"';
+    } else if (calibrated && currentUnit === 'mm' && c.bbox_mm) {
+      wStr = c.bbox_mm.w.toFixed(3) + 'mm';
+      hStr = c.bbox_mm.h.toFixed(3) + 'mm';
+    } else {
+      wStr = c.bbox_px.w + 'px';
+      hStr = c.bbox_px.h + 'px';
+    }
+
+    let areaStr;
+    if (calibrated && currentUnit === 'inches' && c.area_in2 != null) {
+      areaStr = c.area_in2.toFixed(4);
+    } else if (calibrated && currentUnit === 'mm' && c.area_mm2 != null) {
+      areaStr = c.area_mm2.toFixed(3);
+    } else {
+      areaStr = Math.round(c.area_px);
+    }
+
+    rows += `<tr>
+      <td>${pip}${c.id}</td>
+      <td>${c.depth}</td>
+      <td>${wStr}</td>
+      <td>${hStr}</td>
+      <td>${areaStr}</td>
+    </tr>`;
+  }
+
+  list.innerHTML = `<table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>D</th>
+        <th>W</th>
+        <th>H</th>
+        <th>Area</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 2800);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+pollStatus();
+pollResults();
+setInterval(pollStatus, POLL_STATUS_MS);
+setInterval(pollResults, POLL_RESULTS_MS);
+</script>
+</body>
+</html>
