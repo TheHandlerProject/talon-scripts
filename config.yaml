@@ -1,6 +1,6 @@
 stage: 1
 camera:
-  source: http://10.0.0.29:4747/video
+  source: 2
   width: 1920
   height: 1080
   fps: 30
