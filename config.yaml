@@ -1,101 +1,72 @@
-# =============================================================================
-# AI Metrology Inspection Station — config.yaml
-# Stage 1: Smartphone via Iriun Webcam (Ubuntu/Zion)
-# =============================================================================
-# To switch stages: change 'stage' and update camera/optics sections only.
-# All pipeline settings below are stage-independent unless noted.
-
-stage: 1  # 1=Iriun smartphone | 2=Canon DSLR | 3=Industrial
-
-# -----------------------------------------------------------------------------
-# Camera
-# -----------------------------------------------------------------------------
+stage: 1
 camera:
-  source: 0             # OpenCV index. Iriun usually appears as /dev/video0 → 0
-                        # If multiple cameras: try 1 or 2. Use `v4l2-ctl --list-devices`
+  source: http://10.0.0.29:4747/video
   width: 1920
   height: 1080
   fps: 30
-  backend: v4l2         # v4l2 for Linux. Set to dshow on Windows (Stage 2 Canon)
-
-# -----------------------------------------------------------------------------
-# Optics / Spatial Calibration
-# Stage 1: fill after running calibration.py with a known reference object
-# -----------------------------------------------------------------------------
+  backend: auto
 optics:
-  px_per_mm: null       # Set by calibration.py — do not edit manually
-  px_per_inch: null     # Derived automatically from px_per_mm
+  px_per_mm: null
+  px_per_inch: null
   calibrated: false
   calibration_file: calibration/spatial_map.json
-  # Working distance and FOV are informational only (used in reports)
   working_distance_mm: null
   fov_width_mm: null
   fov_height_mm: null
-
-# -----------------------------------------------------------------------------
-# Lens Distortion Correction (set by calibration.py checkerboard routine)
-# -----------------------------------------------------------------------------
 lens:
   correction_enabled: false
-  camera_matrix: null   # 3x3 intrinsics — populated by calibration.py
-  dist_coeffs: null     # [k1, k2, p1, p2, k3]
-
-# -----------------------------------------------------------------------------
-# Edge Detection Pipeline
-# -----------------------------------------------------------------------------
+  camera_matrix: null
+  dist_coeffs: null
 edge_detection:
-  # Canny thresholds — tune for your lighting/part contrast
-  canny_low: 50
-  canny_high: 150
-  canny_aperture: 3     # Sobel kernel size: 3, 5, or 7
-
-  # Gaussian blur before Canny (reduces noise)
-  blur_kernel: 5        # Must be odd. 0 = disabled
-
-  # Contour settings
-  contour_mode: RETR_TREE       # RETR_TREE preserves hierarchy (nested facets)
+  canny_low: 75
+  canny_high: 71
+  canny_aperture: 3
+  blur_kernel: 5
+  contour_mode: RETR_TREE
   contour_method: CHAIN_APPROX_SIMPLE
-  min_contour_area: 100         # px² — filters out noise/dust
-  max_contours: 300             # Hard cap to prevent runaway detection
-
-  # Subpixel refinement (Sobel-based)
+  min_contour_area: 100
+  max_contours: 300
   subpixel_enabled: true
-  subpixel_window: 5            # Search window half-size in px
-
-# -----------------------------------------------------------------------------
-# Measurement Output
-# -----------------------------------------------------------------------------
+  subpixel_window: 5
 measurement:
-  default_unit: inches          # inches | mm  (toggleable in UI)
-  precision_inches: 4           # decimal places
+  default_unit: inches
+  precision_inches: 4
   precision_mm: 3
-  # Bounding box, area, perimeter reported per contour
   report_bbox: true
   report_area: true
   report_perimeter: true
-
-# -----------------------------------------------------------------------------
-# Flask Server
-# -----------------------------------------------------------------------------
 server:
-  host: 0.0.0.0         # Bind all interfaces so Tailscale + LAN can reach it
+  host: 0.0.0.0
   port: 5000
   debug: false
-  mjpeg_quality: 80     # JPEG compression for stream (0-100)
-  stream_fps_cap: 15    # Cap stream FPS to reduce bandwidth on Zion
-
-# -----------------------------------------------------------------------------
-# Display / Overlay
-# -----------------------------------------------------------------------------
+  mjpeg_quality: 80
+  stream_fps_cap: 15
 display:
-  overlay_color: [0, 255, 0]       # BGR — contour lines (green)
-  bbox_color: [0, 200, 255]        # BGR — bounding boxes (yellow-cyan)
-  text_color: [255, 255, 255]      # BGR — measurement labels
+  overlay_color:
+  - 0
+  - 255
+  - 0
+  bbox_color:
+  - 0
+  - 200
+  - 255
+  text_color:
+  - 255
+  - 255
+  - 255
   font_scale: 0.45
   line_thickness: 1
-  show_hierarchy: true             # Color-code contours by depth level
+  show_hierarchy: true
   hierarchy_colors:
-    - [0, 255, 0]                  # Depth 0 — outermost (green)
-    - [0, 200, 255]                # Depth 1 (cyan)
-    - [0, 100, 255]                # Depth 2 (orange-ish)
-    - [0, 0, 255]                  # Depth 3+ (red)
+  - - 0
+    - 255
+    - 0
+  - - 0
+    - 200
+    - 255
+  - - 0
+    - 100
+    - 255
+  - - 0
+    - 0
+    - 255
