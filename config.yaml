@@ -6,9 +6,9 @@ camera:
   fps: 30
   backend: auto
 optics:
-  px_per_mm: null
-  px_per_inch: null
-  calibrated: false
+  px_per_mm: 8.40625
+  px_per_inch: 213.51875
+  calibrated: true
   calibration_file: calibration/spatial_map.json
   working_distance_mm: null
   fov_width_mm: null
