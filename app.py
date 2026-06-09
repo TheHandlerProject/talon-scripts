@@ -1,16 +1,5 @@
 """
 app.py — Flask web server for AI Metrology Inspection Station
-
-Endpoints:
-  GET  /                      Dashboard HTML
-  GET  /stream                MJPEG live video stream
-  GET  /stream/edges          MJPEG edge-only view
-  GET  /api/status            JSON system status + calibration info
-  GET  /api/results           JSON latest inspection results
-  GET  /api/unit/<unit>       Switch display unit (inches | mm)
-  POST /api/canny             Adjust Canny thresholds {low, high}
-  GET  /api/snapshot          Download current annotated frame as JPEG
-  POST /api/calibrate/spatial Start interactive spatial calibration
 """
 
 import io
@@ -19,6 +8,7 @@ import logging
 import os
 import threading
 import time
+import uuid
 from pathlib import Path
 
 import cv2
@@ -30,11 +20,8 @@ from inspect import Inspector
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# App factory
-# ---------------------------------------------------------------------------
-
 CONFIG_PATH = "config.yaml"
+SCANS_DIR   = Path("/home/neo/inspection/scans")
 
 
 def load_config() -> dict:
@@ -46,29 +33,37 @@ def create_app() -> Flask:
     cfg = load_config()
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
-    # Shared state
     state = {
-        "cfg": cfg,
-        "camera": None,
-        "inspector": None,
+        "cfg":           cfg,
+        "camera":        None,
+        "inspector":     None,
         "latest_result": None,
-        "latest_frame": None,  # Annotated
-        "latest_edges": None,
-        "frame_lock": threading.Lock(),
-        "result_lock": threading.Lock(),
-        "running": False,
-        "start_time": time.time(),
+        "latest_frame":  None,
+        "latest_edges":  None,
+        "frame_lock":    threading.Lock(),
+        "result_lock":   threading.Lock(),
+        "running":       False,
+        "start_time":    time.time(),
+        "rotation":      0,          # degrees: 0 / 90 / 180 / 270
+        # scan state
+        "scan_active":   False,
+        "scan_frames":   [],
+        "scan_captured": 0,
+        "scan_lock":     threading.Lock(),
+        "scan_status":   {},         # session_id -> status dict
     }
 
     _start_pipeline(state)
 
-    # -----------------------------------------------------------------------
-    # Routes
-    # -----------------------------------------------------------------------
+    # ── Routes ───────────────────────────────────────────────────────────────
 
     @app.route("/")
     def index():
         return render_template("dashboard.html")
+
+    @app.route("/scan-viewer")
+    def scan_viewer():
+        return render_template("scan_viewer.html")
 
     @app.route("/stream")
     def stream():
@@ -90,17 +85,18 @@ def create_app() -> Flask:
         cam = state["camera"]
         uptime = int(time.time() - state["start_time"])
         return jsonify({
-            "ok": state["running"],
-            "uptime_s": uptime,
-            "stage": cfg.get("stage", 1),
-            "camera_open": cam.is_open() if cam else False,
-            "calibrated": cfg["optics"].get("calibrated", False),
-            "px_per_mm": cfg["optics"].get("px_per_mm"),
-            "px_per_inch": cfg["optics"].get("px_per_inch"),
+            "ok":           state["running"],
+            "uptime_s":     uptime,
+            "stage":        cfg.get("stage", 1),
+            "camera_open":  cam.is_open() if cam else False,
+            "calibrated":   cfg["optics"].get("calibrated", False),
+            "px_per_mm":    cfg["optics"].get("px_per_mm"),
+            "px_per_inch":  cfg["optics"].get("px_per_inch"),
             "default_unit": cfg["measurement"].get("default_unit", "inches"),
-            "canny_low": cfg["edge_detection"]["canny_low"],
-            "canny_high": cfg["edge_detection"]["canny_high"],
+            "canny_low":    cfg["edge_detection"]["canny_low"],
+            "canny_high":   cfg["edge_detection"]["canny_high"],
             "server_fps_cap": cfg["server"].get("stream_fps_cap", 15),
+            "rotation":     state["rotation"],
         })
 
     @app.route("/api/results")
@@ -124,7 +120,7 @@ def create_app() -> Flask:
     @app.route("/api/canny", methods=["POST"])
     def api_canny():
         data = request.get_json(force=True)
-        low = data.get("low")
+        low  = data.get("low")
         high = data.get("high")
         if low is not None:
             state["cfg"]["edge_detection"]["canny_low"] = int(low)
@@ -134,7 +130,7 @@ def create_app() -> Flask:
             state["inspector"].canny_high = int(high)
         _persist_config(state["cfg"])
         return jsonify({
-            "canny_low": state["cfg"]["edge_detection"]["canny_low"],
+            "canny_low":  state["cfg"]["edge_detection"]["canny_low"],
             "canny_high": state["cfg"]["edge_detection"]["canny_high"],
         })
 
@@ -154,65 +150,185 @@ def create_app() -> Flask:
 
     @app.route("/api/calibrate/spatial", methods=["POST"])
     def api_calibrate_spatial():
-        """
-        Kick off spatial calibration from a web request.
-        Body JSON: {"px_dist": 423.5, "real_dist": 25.4, "unit": "mm"}
-        """
         data = request.get_json(force=True)
         try:
-            px_dist = float(data["px_dist"])
+            px_dist   = float(data["px_dist"])
             real_dist = float(data["real_dist"])
-            unit = data.get("unit", "mm").lower()
+            unit      = data.get("unit", "mm").lower()
         except (KeyError, ValueError) as e:
             return jsonify({"error": f"Bad payload: {e}"}), 400
 
-        if unit in ("in", "inch", "inches"):
-            real_dist_mm = real_dist * 25.4
-        else:
-            real_dist_mm = real_dist
+        real_dist_mm = real_dist * 25.4 if unit in ("in", "inch", "inches") else real_dist
+        px_per_mm    = px_dist / real_dist_mm
+        px_per_inch  = px_per_mm * 25.4
 
-        px_per_mm = px_dist / real_dist_mm
-        px_per_inch = px_per_mm * 25.4
-
-        state["cfg"]["optics"]["px_per_mm"] = round(px_per_mm, 6)
+        state["cfg"]["optics"]["px_per_mm"]   = round(px_per_mm, 6)
         state["cfg"]["optics"]["px_per_inch"] = round(px_per_inch, 6)
-        state["cfg"]["optics"]["calibrated"] = True
+        state["cfg"]["optics"]["calibrated"]  = True
         _persist_config(state["cfg"])
-
         state["inspector"].reload_calibration(px_per_mm)
 
         return jsonify({
-            "calibrated": True,
-            "px_per_mm": round(px_per_mm, 6),
+            "calibrated":  True,
+            "px_per_mm":   round(px_per_mm, 6),
             "px_per_inch": round(px_per_inch, 6),
         })
+
+    # ── Rotate ───────────────────────────────────────────────────────────────
+
+    @app.route("/api/rotate", methods=["POST"])
+    def api_rotate():
+        data = request.get_json(force=True)
+        direction = data.get("direction", "cw")
+        if direction == "cw":
+            state["rotation"] = (state["rotation"] + 90) % 360
+        else:
+            state["rotation"] = (state["rotation"] - 90) % 360
+        return jsonify({"rotation": state["rotation"]})
+
+    # ── Scan endpoints ───────────────────────────────────────────────────────
+
+    @app.route("/api/scan/start", methods=["POST"])
+    def api_scan_start():
+        data     = request.get_json(force=True) or {}
+        count    = int(data.get("count", 10))
+        interval = float(data.get("interval", 0.5))
+
+        with state["scan_lock"]:
+            if state["scan_active"]:
+                return jsonify({"error": "scan already running"}), 409
+            state["scan_active"]   = True
+            state["scan_frames"]   = []
+            state["scan_captured"] = 0
+
+        SCANS_DIR.mkdir(parents=True, exist_ok=True)
+
+        def capture_loop():
+            for _ in range(count):
+                if not state["scan_active"]:
+                    break
+                with state["frame_lock"]:
+                    frame = state["latest_frame"]
+                if frame is not None:
+                    with state["scan_lock"]:
+                        state["scan_frames"].append(frame.copy())
+                        state["scan_captured"] += 1
+                time.sleep(interval)
+            with state["scan_lock"]:
+                state["scan_active"] = False
+
+        t = threading.Thread(target=capture_loop, daemon=True, name="ScanCapture")
+        t.start()
+        return jsonify({"ok": True, "count": count, "interval": interval})
+
+    @app.route("/api/scan/stop", methods=["POST"])
+    def api_scan_stop():
+        with state["scan_lock"]:
+            state["scan_active"] = False
+            captured = state["scan_captured"]
+        return jsonify({"ok": True, "frames_captured": captured})
+
+    @app.route("/api/scan/status")
+    def api_scan_status():
+        with state["scan_lock"]:
+            return jsonify({
+                "active":          state["scan_active"],
+                "frames_captured": state["scan_captured"],
+            })
+
+    @app.route("/api/scan/reconstruct", methods=["POST"])
+    def api_scan_reconstruct():
+        with state["scan_lock"]:
+            frames   = list(state["scan_frames"])
+            captured = state["scan_captured"]
+
+        if len(frames) < 3:
+            return jsonify({"error": f"Need at least 3 frames, have {len(frames)}"}), 400
+
+        scan_id = f"scan_{int(time.time())}"
+
+        # Save frames immediately
+        img_dir = SCANS_DIR / scan_id / "images"
+        img_dir.mkdir(parents=True, exist_ok=True)
+        for i, f in enumerate(frames):
+            cv2.imwrite(str(img_dir / f"frame_{i:04d}.jpg"), f,
+                        [cv2.IMWRITE_JPEG_QUALITY, 95])
+
+        state["scan_status"][scan_id] = {
+            "status": "processing",
+            "frames": len(frames),
+            "scan_id": scan_id,
+        }
+
+        def do_reconstruct():
+            try:
+                from reconstruct import run_reconstruction
+                result = run_reconstruction(frames, scan_id)
+                state["scan_status"][scan_id].update({
+                    "status":      "complete" if result["ok"] else "error",
+                    "ply":         result.get("ply"),
+                    "point_count": result.get("points", 0),
+                    "error":       result.get("error"),
+                })
+            except Exception as e:
+                state["scan_status"][scan_id].update({
+                    "status": "error",
+                    "error":  str(e),
+                })
+
+        t = threading.Thread(target=do_reconstruct, daemon=True, name="Reconstruct")
+        t.start()
+
+        return jsonify({"ok": True, "scan_id": scan_id, "frames": len(frames)})
+
+    @app.route("/api/scan/<scan_id>/status")
+    def api_scan_session_status(scan_id: str):
+        s = state["scan_status"].get(scan_id)
+        if s is None:
+            return jsonify({"error": "unknown scan_id"}), 404
+        return jsonify(s)
+
+    @app.route("/api/scan/<scan_id>/pointcloud")
+    def api_scan_pointcloud(scan_id: str):
+        ply = SCANS_DIR / scan_id / f"{scan_id}.ply"
+        if not ply.exists():
+            return jsonify({"error": "point cloud not found"}), 404
+        return send_file(str(ply), as_attachment=True,
+                         download_name=f"{scan_id}.ply")
 
     return app
 
 
-# ---------------------------------------------------------------------------
-# Pipeline thread
-# ---------------------------------------------------------------------------
+# ── Pipeline ─────────────────────────────────────────────────────────────────
 
 def _start_pipeline(state: dict) -> None:
     cfg = state["cfg"]
     cam = CameraCapture(cfg)
     cam.start()
     inspector = Inspector(cfg)
-    state["camera"] = cam
+    state["camera"]    = cam
     state["inspector"] = inspector
-    state["running"] = True
+    state["running"]   = True
 
     def pipeline_loop():
-        fps_cap = cfg["server"].get("stream_fps_cap", 15)
+        fps_cap  = cfg["server"].get("stream_fps_cap", 15)
         interval = 1.0 / fps_cap
 
         while state["running"]:
-            t0 = time.monotonic()
+            t0    = time.monotonic()
             frame = cam.read()
             if frame is None:
                 time.sleep(0.02)
                 continue
+
+            # Apply rotation if set
+            rot = state.get("rotation", 0)
+            if rot == 90:
+                frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+            elif rot == 180:
+                frame = cv2.rotate(frame, cv2.ROTATE_180)
+            elif rot == 270:
+                frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
             annotated, result = inspector.process(frame)
             edges = inspector.get_edge_frame(frame)
@@ -234,16 +350,12 @@ def _start_pipeline(state: dict) -> None:
 
 
 def _mjpeg_generator(state: dict, mode: str = "annotated"):
-    """Yield MJPEG frames from the pipeline."""
-    quality = state["cfg"]["server"].get("mjpeg_quality", 80)
+    quality      = state["cfg"]["server"].get("mjpeg_quality", 80)
     encode_params = [cv2.IMWRITE_JPEG_QUALITY, quality]
 
     while True:
         with state["frame_lock"]:
-            if mode == "edges":
-                frame = state["latest_edges"]
-            else:
-                frame = state["latest_frame"]
+            frame = state["latest_edges"] if mode == "edges" else state["latest_frame"]
 
         if frame is None:
             time.sleep(0.05)
@@ -269,28 +381,22 @@ def _persist_config(cfg: dict) -> None:
         logger.warning("Could not persist config: %s", e)
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
-
-    cfg = load_config()
+    cfg    = load_config()
     server = cfg["server"]
-
-    app = create_app()
-    logger.info(
-        "Starting inspection server on http://%s:%d",
-        server["host"], server["port"]
-    )
+    app    = create_app()
+    logger.info("Starting inspection server on http://%s:%d",
+                server["host"], server["port"])
     app.run(
         host=server["host"],
         port=server["port"],
         debug=server.get("debug", False),
         threaded=True,
-        use_reloader=False,  # Reloader breaks the camera thread
+        use_reloader=False,
     )
