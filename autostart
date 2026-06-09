@@ -1,0 +1,16 @@
+#!/bin/bash
+# Openbox autostart — Zion dual screen setup
+
+# Set wallpaper to solid dark
+xsetroot -solid "#1a1a1a" &
+
+# Left monitor — primary terminal
+xterm -geometry 180x50+0+0 -bg "#1a1a1a" -fg "#e8e8e8" \
+  -fa "Monospace" -fs 11 -title "Zion Terminal 1" &
+
+# Right monitor — second terminal (opens on HDMI display)
+DISPLAY=:0 xterm -geometry 180x50+1920+0 -bg "#1a1a1a" -fg "#e8e8e8" \
+  -fa "Monospace" -fs 11 -title "Zion Terminal 2" &
+
+# Hide cursor when idle
+xbanish &
