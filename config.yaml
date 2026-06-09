@@ -1,6 +1,6 @@
 stage: 1
 camera:
-  source: 2
+  source: http://10.0.0.29:4747/video
   width: 1920
   height: 1080
   fps: 30
@@ -18,8 +18,8 @@ lens:
   camera_matrix: null
   dist_coeffs: null
 edge_detection:
-  canny_low: 75
-  canny_high: 71
+  canny_low: 73
+  canny_high: 105
   canny_aperture: 3
   blur_kernel: 5
   contour_mode: RETR_TREE
@@ -29,7 +29,7 @@ edge_detection:
   subpixel_enabled: true
   subpixel_window: 5
 measurement:
-  default_unit: inches
+  default_unit: mm
   precision_inches: 4
   precision_mm: 3
   report_bbox: true
