@@ -104,8 +104,8 @@
     position: relative;
   }
   .video-wrap img {
-    max-width: 100%; max-height: 100%;
-    object-fit: contain;
+    width: 100%; height: 100%;
+    object-fit: cover;
     display: block;
   }
   .fps-badge {
@@ -328,6 +328,27 @@
       </div>
     </div>
 
+    <!-- Display controls -->
+    <div class="controls" style="border-top:1px solid var(--border)">
+      <div class="panel-header" style="padding:0 0 10px 0">Display Controls</div>
+      <div class="control-row">
+        <span class="control-label">Max contours</span>
+        <input type="range" id="maxContours" min="1" max="50" value="10"
+               oninput="maxContoursChanged()">
+        <span class="control-val" id="maxContoursVal">10</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Refresh rate</span>
+        <input type="range" id="pollRate" min="500" max="5000" step="500" value="2000"
+               oninput="pollRateChanged()">
+        <span class="control-val" id="pollRateVal">2s</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Freeze</span>
+        <button class="btn" id="btnFreeze" onclick="toggleFreeze()" style="flex:1;text-align:center">Freeze Frame</button>
+      </div>
+    </div>
+
     <!-- Calibration -->
     <div class="cal-section">
       <div class="panel-header" style="padding:0 0 10px 0">
@@ -377,9 +398,10 @@
 
 <script>
 // ── Config ──────────────────────────────────────────────────────────────────
-const POLL_RESULTS_MS  = 500;
-const POLL_STATUS_MS   = 2000;
+const POLL_RESULTS_MS  = 2000;
+const POLL_STATUS_MS   = 3000;
 const CANNY_DEBOUNCE   = 600;
+const MAX_DISPLAY_CONTOURS = 10;
 
 const DEPTH_COLORS = ['#00e676','#00e5ff','#ff9100','#ff1744'];
 
@@ -418,6 +440,41 @@ function setUnit(unit) {
     document.getElementById('mUnit').textContent = unit === 'inches' ? 'IN' : 'MM';
     toast('Unit: ' + unit);
   });
+}
+
+// ── Display controls ─────────────────────────────────────────────────────
+let maxContours = 10;
+let pollRateMs = 2000;
+let frozen = false;
+let frozenResult = null;
+let resultsInterval = null;
+
+function maxContoursChanged() {
+  maxContours = parseInt(document.getElementById('maxContours').value);
+  document.getElementById('maxContoursVal').textContent = maxContours;
+}
+
+function pollRateChanged() {
+  pollRateMs = parseInt(document.getElementById('pollRate').value);
+  const secs = (pollRateMs / 1000).toFixed(1).replace('.0','');
+  document.getElementById('pollRateVal').textContent = secs + 's';
+  clearInterval(resultsInterval);
+  resultsInterval = setInterval(pollResults, pollRateMs);
+}
+
+function toggleFreeze() {
+  frozen = !frozen;
+  const btn = document.getElementById('btnFreeze');
+  if (frozen) {
+    btn.classList.add('active');
+    btn.textContent = '⏸ Frozen';
+    const feed = document.getElementById('videoFeed');
+    feed.style.opacity = '0.7';
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = 'Freeze Frame';
+    document.getElementById('videoFeed').style.opacity = '1';
+  }
 }
 
 // ── Canny controls ────────────────────────────────────────────────────────
@@ -550,6 +607,7 @@ function pollResults() {
 }
 
 function renderContours(contours, calibrated) {
+  if (frozen) return; // Don't update table when frozen
   const list = document.getElementById('contourList');
 
   if (!contours || contours.length === 0) {
@@ -557,10 +615,13 @@ function renderContours(contours, calibrated) {
     return;
   }
 
-  const unitLabel = currentUnit === 'inches' ? 'in' : 'mm';
+  // Sort by area descending, show only top N
+  const sorted = [...contours]
+    .sort((a, b) => b.area_px - a.area_px)
+    .slice(0, maxContours);
 
   let rows = '';
-  for (const c of contours) {
+  for (const c of sorted) {
     const color = DEPTH_COLORS[Math.min(c.depth, DEPTH_COLORS.length - 1)];
     const pip   = `<span class="depth-pip" style="background:${color}"></span>`;
 
@@ -622,7 +683,7 @@ function toast(msg, isError = false) {
 pollStatus();
 pollResults();
 setInterval(pollStatus, POLL_STATUS_MS);
-setInterval(pollResults, POLL_RESULTS_MS);
+resultsInterval = setInterval(pollResults, pollRateMs);
 </script>
 </body>
 </html>
