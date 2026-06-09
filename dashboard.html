@@ -271,11 +271,24 @@
       <button class="btn active" id="btnAnnotated" onclick="setStream('annotated')">Annotated</button>
       <button class="btn" id="btnEdges" onclick="setStream('edges')">Edges</button>
       <div style="flex:1"></div>
+      <button class="btn" id="btnScan" onclick="openScanPanel()" style="border-color:var(--warn);color:var(--warn)">⬡ 3D Scan</button>
       <button class="btn action" onclick="takeSnapshot()">⬇ Snapshot</button>
     </div>
     <div class="video-wrap">
       <img id="videoFeed" src="/stream" alt="Camera Feed">
       <div class="fps-badge" id="fpsBadge">— fps</div>
+      <!-- Scan overlay -->
+      <div id="scanOverlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.82);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:0.15em;color:var(--warn);text-transform:uppercase">3D Scan Mode</div>
+        <div id="scanFrameCount" style="font-family:var(--mono);font-size:48px;color:var(--accent);line-height:1">0</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--dim)">frames captured</div>
+        <button class="btn" id="btnCapture" onclick="captureFrame()" style="font-size:16px;padding:12px 32px;border-color:var(--accent);color:var(--accent)">📸 CAPTURE</button>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn" id="btnFinishScan" onclick="finishScan()" style="border-color:var(--ok);color:var(--ok)" disabled>✓ Finish &amp; Reconstruct</button>
+          <button class="btn" onclick="cancelScan()" style="border-color:var(--danger);color:var(--danger)">✕ Cancel</button>
+        </div>
+        <div id="scanStatus" style="font-family:var(--mono);font-size:10px;color:var(--dim);max-width:300px;text-align:center"></div>
+      </div>
     </div>
   </div>
 
@@ -678,6 +691,121 @@ function toast(msg, isError = false) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.className = ''; }, 2800);
 }
+
+// ── 3D Scan ──────────────────────────────────────────────────────────────
+let activeScanId = null;
+let scanFrameCount = 0;
+
+function openScanPanel() {
+  document.getElementById('scanOverlay').style.display = 'flex';
+  document.getElementById('btnScan').classList.add('active');
+  // Start session
+  fetch('/api/scan/start', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { toast(d.error, true); closeScanPanel(); return; }
+      activeScanId = d.session_id;
+      scanFrameCount = 0;
+      document.getElementById('scanFrameCount').textContent = '0';
+      document.getElementById('scanStatus').textContent = 'Walk around the part. Press CAPTURE for each position.';
+      document.getElementById('btnFinishScan').disabled = true;
+      toast('Scan started — capture at least 10 frames');
+    });
+}
+
+function closeScanPanel() {
+  document.getElementById('scanOverlay').style.display = 'none';
+  document.getElementById('btnScan').classList.remove('active');
+  activeScanId = null;
+  scanFrameCount = 0;
+}
+
+function captureFrame() {
+  if (!activeScanId) return;
+  const btn = document.getElementById('btnCapture');
+  btn.disabled = true;
+  btn.textContent = '⏳ Capturing...';
+
+  fetch(`/api/scan/${activeScanId}/capture`, { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { toast(d.error, true); }
+      else {
+        scanFrameCount = d.frame;
+        document.getElementById('scanFrameCount').textContent = scanFrameCount;
+        if (scanFrameCount >= 5) {
+          document.getElementById('btnFinishScan').disabled = false;
+        }
+        document.getElementById('scanStatus').textContent =
+          scanFrameCount < 10
+            ? `${scanFrameCount} frames — keep going, aim for 20-40`
+            : `${scanFrameCount} frames captured — finish when ready`;
+      }
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = '📸 CAPTURE';
+    });
+}
+
+function finishScan() {
+  if (!activeScanId) return;
+  document.getElementById('scanStatus').textContent = '⏳ Reconstructing 3D model... this takes a few minutes';
+  document.getElementById('btnCapture').disabled = true;
+  document.getElementById('btnFinishScan').disabled = true;
+
+  fetch(`/api/scan/${activeScanId}/finish`, { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { toast(d.error, true); return; }
+      toast('Reconstruction started — check status below');
+      pollScanStatus(activeScanId);
+    });
+}
+
+function cancelScan() {
+  if (activeScanId) {
+    fetch(`/api/scan/${activeScanId}/cancel`, { method: 'POST' });
+  }
+  closeScanPanel();
+}
+
+function pollScanStatus(sessionId) {
+  const interval = setInterval(() => {
+    fetch(`/api/scan/${sessionId}/status`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === 'complete') {
+          clearInterval(interval);
+          document.getElementById('scanStatus').textContent =
+            `✓ Complete! ${d.point_count.toLocaleString()} points`;
+          toast(`3D scan complete — ${d.point_count.toLocaleString()} points`);
+          // Add download link
+          const dl = document.createElement('a');
+          dl.href = `/api/scan/${sessionId}/pointcloud`;
+          dl.download = `scan_${sessionId}.ply`;
+          dl.style.cssText = 'color:var(--ok);font-family:var(--mono);font-size:11px';
+          dl.textContent = '⬇ Download .PLY';
+          document.getElementById('scanStatus').appendChild(document.createElement('br'));
+          document.getElementById('scanStatus').appendChild(dl);
+        } else if (d.status === 'error') {
+          clearInterval(interval);
+          document.getElementById('scanStatus').textContent = `✕ Error: ${d.error}`;
+          toast('Reconstruction failed: ' + d.error, true);
+        } else {
+          document.getElementById('scanStatus').textContent = '⏳ Reconstructing...';
+        }
+      });
+  }, 3000);
+}
+
+// Spacebar triggers capture when scan overlay is open
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && activeScanId) {
+    e.preventDefault();
+    captureFrame();
+  }
+});
 
 // ── Init ─────────────────────────────────────────────────────────────────
 pollStatus();
