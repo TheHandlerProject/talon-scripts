@@ -188,6 +188,30 @@ def create_app() -> Flask:
 
     # ── Scan endpoints ───────────────────────────────────────────────────────
 
+    @app.route("/api/scan/capture", methods=["POST"])
+    def api_scan_capture():
+        with state["frame_lock"]:
+            frame = state["latest_frame"]
+        if frame is None:
+            return jsonify({"error": "no frame available"}), 503
+        with state["scan_lock"]:
+            state["scan_frames"].append(frame.copy())
+            state["scan_captured"] += 1
+            count = state["scan_captured"]
+        small = cv2.resize(frame, (160, 120))
+        _, buf = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 70])
+        import base64
+        thumb = "data:image/jpeg;base64," + base64.b64encode(buf).decode()
+        return jsonify({"ok": True, "frames_captured": count, "thumbnail": thumb})
+
+    @app.route("/api/scan/clear", methods=["POST"])
+    def api_scan_clear():
+        with state["scan_lock"]:
+            state["scan_frames"]   = []
+            state["scan_captured"] = 0
+            state["scan_active"]   = False
+        return jsonify({"ok": True})
+
     @app.route("/api/scan/start", methods=["POST"])
     def api_scan_start():
         data     = request.get_json(force=True) or {}
