@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Scan Viewer</title>
+<style>
+  :root {
+    --bg: #1a1a1a; --panel: #242424; --border: #404040;
+    --accent: #f0a500; --ok: #78c878; --danger: #e05050;
+    --dim: #888; --text: #e8e8e8; --mono: 'Share Tech Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+  .btn { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 6px 14px; font-size: 13px; cursor: pointer; border-radius: 3px; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.ok { border-color: var(--ok); color: var(--ok); }
+  .btn.danger { border-color: var(--danger); color: var(--danger); }
+  #canvas { flex: 1; display: block; }
+  #status { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--border); padding: 8px 20px;
+    font-family: var(--mono); font-size: 12px; color: var(--dim); border-radius: 4px; }
+  #controls { display: flex; gap: 8px; align-items: center; }
+  #pointCount { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>3D Point Cloud Viewer</h1>
+  <div id="controls">
+    <span id="pointCount">—</span>
+    <button class="btn" onclick="window.history.back()">← Back</button>
+    <button class="btn ok" id="btnReconstruct" onclick="startReconstruct()">⟳ Reconstruct</button>
+    <button class="btn" id="btnDownload" onclick="downloadPly()" disabled>⬇ Download .ply</button>
+  </div>
+</header>
+<canvas id="canvas"></canvas>
+<div id="status">Waiting for reconstruction...</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// Three.js setup
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a1a);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 1000);
+camera.position.set(0, 0, 3);
+
+// Lighting
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+// Grid
+const grid = new THREE.GridHelper(4, 20, 0x404040, 0x2a2a2a);
+scene.add(grid);
+
+// Resize
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Orbit controls (manual)
+let isDragging = false, lastX = 0, lastY = 0;
+let theta = 0, phi = Math.PI / 3, radius = 3;
+canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+canvas.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  theta -= (e.clientX - lastX) * 0.01;
+  phi -= (e.clientY - lastY) * 0.01;
+  phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi));
+  lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('wheel', e => { radius = Math.max(0.5, radius + e.deltaY * 0.005); });
+
+// Touch
+canvas.addEventListener('touchstart', e => { isDragging = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; });
+canvas.addEventListener('touchend', () => isDragging = false);
+canvas.addEventListener('touchmove', e => {
+  theta -= (e.touches[0].clientX - lastX) * 0.01;
+  phi -= (e.touches[0].clientY - lastY) * 0.01;
+  phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi));
+  lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+});
+
+// Animate
+function animate() {
+  requestAnimationFrame(animate);
+  camera.position.set(
+    radius * Math.sin(phi) * Math.sin(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.cos(theta)
+  );
+  camera.lookAt(0, 0, 0);
+  renderer.render(scene, camera);
+}
+animate();
+
+// PLY loader (binary + ascii)
+function loadPLY(buffer) {
+  const text = new TextDecoder().decode(buffer.slice(0, 1024));
+  const lines = text.split('\n');
+  let vertexCount = 0, headerEnd = 0, isBinary = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('element vertex')) vertexCount = parseInt(lines[i].split(' ')[2]);
+    if (lines[i].startsWith('format binary')) isBinary = true;
+    if (lines[i].trim() === 'end_header') { headerEnd = i + 1; break; }
+  }
+  const headerBytes = new TextDecoder().decode(buffer).split('end_header\n')[0].length + 'end_header\n'.length;
+  const positions = new Float32Array(vertexCount * 3);
+  const colors = new Float32Array(vertexCount * 3);
+  if (isBinary) {
+    const stride = 15; // 3x float32 (12 bytes) + 3x uint8 (3 bytes)
+    const view = new DataView(buffer, headerBytes);
+    for (let i = 0; i < vertexCount; i++) {
+      const off = i * stride;
+      positions[i*3]   = view.getFloat32(off,     true);
+      positions[i*3+1] = view.getFloat32(off + 4, true);
+      positions[i*3+2] = view.getFloat32(off + 8, true);
+      colors[i*3]   = view.getUint8(off + 12) / 255;
+      colors[i*3+1] = view.getUint8(off + 13) / 255;
+      colors[i*3+2] = view.getUint8(off + 14) / 255;
+    }
+  } else {
+    const ascii = new TextDecoder().decode(buffer).split('end_header\n')[1].trim().split('\n');
+    for (let i = 0; i < vertexCount; i++) {
+      const parts = ascii[i].trim().split(/\s+/);
+      positions[i*3]   = parseFloat(parts[0]);
+      positions[i*3+1] = parseFloat(parts[1]);
+      positions[i*3+2] = parseFloat(parts[2]);
+      colors[i*3]   = parts[3] ? parseInt(parts[3]) / 255 : 0.9;
+      colors[i*3+1] = parts[4] ? parseInt(parts[4]) / 255 : 0.9;
+      colors[i*3+2] = parts[5] ? parseInt(parts[5]) / 255 : 0.9;
+    }
+  }
+  return { positions, colors, vertexCount };
+}
+
+function displayPointCloud(data) {
+  scene.children = scene.children.filter(c => !(c instanceof THREE.Points));
+
+  // Center and normalize positions
+  const pos = data.positions;
+  let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
+  for (let i = 0; i < pos.length; i+=3) {
+    minX=Math.min(minX,pos[i]); maxX=Math.max(maxX,pos[i]);
+    minY=Math.min(minY,pos[i+1]); maxY=Math.max(maxY,pos[i+1]);
+    minZ=Math.min(minZ,pos[i+2]); maxZ=Math.max(maxZ,pos[i+2]);
+  }
+  const cx=(minX+maxX)/2, cy=(minY+maxY)/2, cz=(minZ+maxZ)/2;
+  const scale = 2.0 / Math.max(maxX-minX, maxY-minY, maxZ-minZ, 0.0001);
+  for (let i = 0; i < pos.length; i+=3) {
+    pos[i]   = (pos[i]   - cx) * scale;
+    pos[i+1] = (pos[i+1] - cy) * scale;
+    pos[i+2] = (pos[i+2] - cz) * scale;
+  }
+
+  // Fix black points — default to amber
+  const col = data.colors;
+  for (let i = 0; i < col.length; i+=3) {
+    if (col[i]===0 && col[i+1]===0 && col[i+2]===0) {
+      col[i]=0.94; col[i+1]=0.65; col[i+2]=0.0;
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.computeBoundingSphere();
+  const mat = new THREE.PointsMaterial({ size: 0.015, vertexColors: true });
+  scene.add(new THREE.Points(geo, mat));
+  radius = geo.boundingSphere.radius * 3;
+  document.getElementById('pointCount').textContent = data.vertexCount.toLocaleString() + ' pts';
+}
+
+let currentScanId = null;
+
+function startReconstruct() {
+  document.getElementById('status').textContent = 'Starting reconstruction...';
+  document.getElementById('btnReconstruct').disabled = true;
+  fetch('/api/scan/reconstruct', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) { setStatus('Error: ' + d.error); document.getElementById('btnReconstruct').disabled = false; return; }
+      currentScanId = d.scan_id;
+      pollReconStatus();
+    });
+}
+
+function pollReconStatus() {
+  fetch('/api/scan/recon_status').then(r => r.json()).then(d => {
+    document.getElementById('status').textContent = d.status;
+    if (d.status === 'done' && d.result?.ok) {
+      document.getElementById('btnDownload').disabled = false;
+      document.getElementById('btnReconstruct').disabled = false;
+      loadAndDisplay(d.result.scan_id);
+    } else if (d.status === 'error') {
+      document.getElementById('btnReconstruct').disabled = false;
+    } else {
+      setTimeout(pollReconStatus, 1000);
+    }
+  });
+}
+
+function loadAndDisplay(scanId) {
+  fetch(`/api/scan/download/${scanId}`)
+    .then(r => r.arrayBuffer())
+    .then(buf => {
+      const data = loadPLY(buf);
+      displayPointCloud(data);
+      document.getElementById('status').textContent = `Loaded ${data.vertexCount.toLocaleString()} points`;
+    });
+}
+
+function downloadPly() {
+  if (!currentScanId) return;
+  window.location = `/api/scan/download/${currentScanId}`;
+}
+</script>
+</body>
+</html>
