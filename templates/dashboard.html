@@ -6,249 +6,70 @@
 <title>Inspection Station</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
-
   :root {
-    --bg:       #1a1a1a;
-    --panel:    #242424;
-    --border:   #404040;
-    --accent:   #f0a500;
-    --warn:     #e8c840;
-    --ok:       #78c878;
-    --danger:   #e05050;
-    --dim:      #888888;
-    --text:     #e8e8e8;
-    --mono:     'Share Tech Mono', monospace;
-    --sans:     'Barlow Condensed', sans-serif;
+    --bg:#1a1a1a; --panel:#242424; --border:#404040; --accent:#f0a500;
+    --warn:#e8c840; --ok:#78c878; --danger:#e05050; --dim:#888888;
+    --text:#e8e8e8; --mono:'Share Tech Mono',monospace; --sans:'Barlow Condensed',sans-serif;
   }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 16px;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* ── Header ── */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 20px;
-    border-bottom: 1px solid var(--border);
-    background: var(--panel);
-  }
-  header .title {
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-  header .title span { color: var(--dim); font-weight: 300; }
-  .status-pill {
-    display: flex; align-items: center; gap: 8px;
-    font-family: var(--mono); font-size: 11px; color: var(--dim);
-  }
-  .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--danger);
-    box-shadow: 0 0 6px var(--danger);
-    transition: background 0.3s, box-shadow 0.3s;
-  }
-  .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-  .dot.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
-
-  /* ── Layout ── */
-  .layout {
-    display: grid;
-    grid-template-columns: 1fr 320px;
-    grid-template-rows: auto 1fr;
-    gap: 1px;
-    background: var(--border);
-    height: calc(100vh - 45px);
-  }
-
-  /* ── Video panel ── */
-  .video-panel {
-    background: var(--bg);
-    display: flex;
-    flex-direction: column;
-    grid-row: 1 / 3;
-    position: relative;
-  }
-  .video-toolbar {
-    display: flex; gap: 6px; padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    background: var(--panel);
-    align-items: center;
-  }
-  .btn {
-    font-family: var(--sans); font-size: 12px; font-weight: 600;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    padding: 5px 14px; border: 1px solid var(--dim);
-    background: transparent; color: var(--dim); cursor: pointer;
-    transition: all 0.15s;
-  }
-  .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.06); }
-  .btn.action { border-color: var(--warn); color: var(--warn); }
-  .btn.action:hover { background: rgba(255,145,0,0.08); }
-
-  .video-wrap {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    overflow: hidden; background: #050709;
-    position: relative;
-  }
-  .video-wrap img {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  .fps-badge {
-    position: absolute; bottom: 10px; right: 10px;
-    font-family: var(--mono); font-size: 10px; color: var(--dim);
-    background: rgba(0,0,0,0.6); padding: 2px 8px;
-    border: 1px solid var(--border);
-  }
-
-  /* ── Side panels ── */
-  .side {
-    background: var(--panel);
-    display: flex; flex-direction: column;
-    overflow: hidden;
-    border-left: 1px solid var(--border);
-  }
-
-  .panel-header {
-    padding: 8px 14px;
-    border-bottom: 1px solid var(--border);
-    font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
-    text-transform: uppercase; color: var(--dim);
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .panel-header .badge {
-    font-family: var(--mono); font-size: 10px;
-    color: var(--accent); border: 1px solid var(--accent);
-    padding: 1px 6px;
-  }
-
-  /* ── Metrics grid ── */
-  .metrics {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 1px; background: var(--border);
-    border-bottom: 1px solid var(--border);
-  }
-  .metric {
-    background: var(--panel); padding: 10px 14px;
-  }
-  .metric .label {
-    font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--dim); margin-bottom: 4px;
-  }
-  .metric .value {
-    font-family: var(--mono); font-size: 20px; color: var(--accent);
-    line-height: 1;
-  }
-  .metric .value.warn { color: var(--warn); }
-  .metric .value.ok { color: var(--ok); }
-  .metric .sub {
-    font-family: var(--mono); font-size: 10px; color: var(--dim); margin-top: 2px;
-  }
-
-  /* ── Controls ── */
-  .controls { padding: 12px 14px; border-bottom: 1px solid var(--border); }
-  .control-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-  .control-row:last-child { margin-bottom: 0; }
-  .control-label {
-    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--dim); width: 80px; flex-shrink: 0;
-  }
-  input[type=range] {
-    flex: 1; height: 3px; accent-color: var(--accent);
-    cursor: pointer; background: var(--border);
-  }
-  .control-val {
-    font-family: var(--mono); font-size: 12px; color: var(--text);
-    width: 36px; text-align: right; flex-shrink: 0;
-  }
-
-  /* ── Unit toggle ── */
-  .unit-toggle { display: flex; gap: 1px; background: var(--border); }
-  .unit-btn {
-    flex: 1; padding: 5px; text-align: center;
-    font-family: var(--sans); font-size: 11px; font-weight: 700;
-    letter-spacing: 0.1em; text-transform: uppercase;
-    background: var(--panel); color: var(--dim);
-    cursor: pointer; border: none;
-    transition: all 0.15s;
-  }
-  .unit-btn.active { background: rgba(0,229,255,0.1); color: var(--accent); }
-
-  /* ── Calibration panel ── */
-  .cal-section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
-  .cal-row { display: flex; gap: 6px; margin-top: 8px; }
-  .cal-input {
-    flex: 1; background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); font-family: var(--mono); font-size: 12px;
-    padding: 5px 8px;
-    outline: none; transition: border-color 0.15s;
-  }
-  .cal-input:focus { border-color: var(--accent); }
-  .cal-input::placeholder { color: var(--dim); }
-  select.cal-input { cursor: pointer; }
-
-  /* ── Contour table ── */
-  .contour-list {
-    flex: 1; overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
-  table { width: 100%; border-collapse: collapse; }
-  thead th {
-    position: sticky; top: 0; z-index: 1;
-    background: #0d1117; padding: 6px 8px;
-    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--dim); text-align: left;
-    border-bottom: 1px solid var(--border);
-  }
-  tbody tr { border-bottom: 1px solid rgba(30,40,48,0.6); }
-  tbody tr:hover { background: rgba(0,229,255,0.03); }
-  tbody td {
-    padding: 5px 8px;
-    font-family: var(--mono); font-size: 11px; color: var(--text);
-  }
-  .depth-pip {
-    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-    margin-right: 4px; vertical-align: middle;
-  }
-  .empty-state {
-    text-align: center; padding: 30px 14px;
-    font-size: 11px; color: var(--dim); letter-spacing: 0.1em;
-  }
-
-  /* ── Cal status bar ── */
-  .cal-status {
-    padding: 6px 14px; border-top: 1px solid var(--border);
-    font-family: var(--mono); font-size: 10px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .cal-status.calibrated { color: var(--ok); }
-  .cal-status.uncalibrated { color: var(--warn); }
-
-  /* ── Toast ── */
-  #toast {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: var(--panel); border: 1px solid var(--accent);
-    color: var(--accent); font-family: var(--mono); font-size: 12px;
-    padding: 8px 20px; opacity: 0; pointer-events: none;
-    transition: opacity 0.3s; z-index: 100;
-  }
-  #toast.show { opacity: 1; }
-  #toast.error { border-color: var(--danger); color: var(--danger); }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:16px; min-height:100vh; overflow-x:hidden; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:10px 20px; border-bottom:1px solid var(--border); background:var(--panel); }
+  header .title { font-size:18px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); }
+  header .title span { color:var(--dim); font-weight:300; }
+  .status-pill { display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; color:var(--dim); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--danger); box-shadow:0 0 6px var(--danger); transition:background 0.3s,box-shadow 0.3s; }
+  .dot.live { background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  .dot.warn { background:var(--warn); box-shadow:0 0 8px var(--warn); }
+  .layout { display:grid; grid-template-columns:1fr 320px; grid-template-rows:auto 1fr; gap:1px; background:var(--border); height:calc(100vh - 45px); }
+  .video-panel { background:var(--bg); display:flex; flex-direction:column; grid-row:1/3; position:relative; }
+  .video-toolbar { display:flex; gap:6px; padding:8px 12px; border-bottom:1px solid var(--border); background:var(--panel); align-items:center; }
+  .btn { font-family:var(--sans); font-size:12px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; padding:5px 14px; border:1px solid var(--dim); background:transparent; color:var(--dim); cursor:pointer; transition:all 0.15s; }
+  .btn:hover { border-color:var(--accent); color:var(--accent); }
+  .btn.active { border-color:var(--accent); color:var(--accent); background:rgba(0,229,255,0.06); }
+  .btn.action { border-color:var(--warn); color:var(--warn); }
+  .btn.action:hover { background:rgba(255,145,0,0.08); }
+  .video-wrap { flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#050709; position:relative; }
+  .video-wrap img { width:100%; height:100%; object-fit:cover; display:block; }
+  .fps-badge { position:absolute; bottom:10px; right:10px; font-family:var(--mono); font-size:10px; color:var(--dim); background:rgba(0,0,0,0.6); padding:2px 8px; border:1px solid var(--border); }
+  .side { background:var(--panel); display:flex; flex-direction:column; overflow:hidden; border-left:1px solid var(--border); }
+  .panel-header { padding:8px 14px; border-bottom:1px solid var(--border); font-size:10px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--dim); display:flex; justify-content:space-between; align-items:center; }
+  .panel-header .badge { font-family:var(--mono); font-size:10px; color:var(--accent); border:1px solid var(--accent); padding:1px 6px; }
+  .metrics { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); border-bottom:1px solid var(--border); }
+  .metric { background:var(--panel); padding:10px 14px; }
+  .metric .label { font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--dim); margin-bottom:4px; }
+  .metric .value { font-family:var(--mono); font-size:20px; color:var(--accent); line-height:1; }
+  .metric .value.warn { color:var(--warn); }
+  .metric .value.ok { color:var(--ok); }
+  .metric .sub { font-family:var(--mono); font-size:10px; color:var(--dim); margin-top:2px; }
+  .controls { padding:12px 14px; border-bottom:1px solid var(--border); }
+  .control-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .control-row:last-child { margin-bottom:0; }
+  .control-label { font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); width:80px; flex-shrink:0; }
+  input[type=range] { flex:1; height:3px; accent-color:var(--accent); cursor:pointer; background:var(--border); }
+  .control-val { font-family:var(--mono); font-size:12px; color:var(--text); width:36px; text-align:right; flex-shrink:0; }
+  .unit-toggle { display:flex; gap:1px; background:var(--border); }
+  .unit-btn { flex:1; padding:5px; text-align:center; font-family:var(--sans); font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; background:var(--panel); color:var(--dim); cursor:pointer; border:none; transition:all 0.15s; }
+  .unit-btn.active { background:rgba(0,229,255,0.1); color:var(--accent); }
+  .cal-section { padding:12px 14px; border-bottom:1px solid var(--border); }
+  .cal-row { display:flex; gap:6px; margin-top:8px; }
+  .cal-input { flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:12px; padding:5px 8px; outline:none; transition:border-color 0.15s; }
+  .cal-input:focus { border-color:var(--accent); }
+  .cal-input::placeholder { color:var(--dim); }
+  select.cal-input { cursor:pointer; }
+  .contour-list { flex:1; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+  table { width:100%; border-collapse:collapse; }
+  thead th { position:sticky; top:0; z-index:1; background:#0d1117; padding:6px 8px; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); text-align:left; border-bottom:1px solid var(--border); }
+  tbody tr { border-bottom:1px solid rgba(30,40,48,0.6); }
+  tbody tr:hover { background:rgba(0,229,255,0.03); }
+  tbody td { padding:5px 8px; font-family:var(--mono); font-size:11px; color:var(--text); }
+  .depth-pip { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+  .empty-state { text-align:center; padding:30px 14px; font-size:11px; color:var(--dim); letter-spacing:0.1em; }
+  .cal-status { padding:6px 14px; border-top:1px solid var(--border); font-family:var(--mono); font-size:10px; display:flex; align-items:center; gap:8px; }
+  .cal-status.calibrated { color:var(--ok); }
+  .cal-status.uncalibrated { color:var(--warn); }
+  #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--panel); border:1px solid var(--accent); color:var(--accent); font-family:var(--mono); font-size:12px; padding:8px 20px; opacity:0; pointer-events:none; transition:opacity 0.3s; z-index:100; }
+  #toast.show { opacity:1; }
+  #toast.error { border-color:var(--danger); color:var(--danger); }
 </style>
 </head>
 <body>
@@ -265,14 +86,14 @@
 
 <div class="layout">
 
-  <!-- ── VIDEO ── -->
+  <!-- VIDEO -->
   <div class="video-panel">
     <div class="video-toolbar">
       <button class="btn active" id="btnAnnotated" onclick="setStream('annotated')">Annotated</button>
       <button class="btn" id="btnEdges" onclick="setStream('edges')">Edges</button>
       <div style="flex:1"></div>
-      <button class="btn" onclick="rotateView('ccw')" title="Rotate CCW">↺</button>
-      <button class="btn" onclick="rotateView('cw')" title="Rotate CW">↻</button>
+      <button class="btn" onclick="rotateView('ccw')">↺</button>
+      <button class="btn" onclick="rotateView('cw')">↻</button>
       <button class="btn" id="btnScan" onclick="openScanPanel()" style="border-color:var(--warn);color:var(--warn)">⬡ 3D Scan</button>
       <button class="btn action" onclick="takeSnapshot()">⬇ Snapshot</button>
       <button class="btn" onclick="window.open('/scan-viewer','_blank')" style="border-color:var(--ok);color:var(--ok)">⬡ 3D Viewer</button>
@@ -287,13 +108,13 @@
         <div style="font-family:var(--mono);font-size:12px;color:var(--dim)">frames captured</div>
         <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
           <label style="font-family:var(--mono);font-size:12px;color:var(--text)">FRAMES</label>
-          <input type="range" id="scanCountSlider" min="5" max="60" value="10" step="1" oninput="document.getElementById('scanCountVal').textContent=this.value" style="width:140px">
+          <input type="range" id="scanCountSlider" min="5" max="200" value="10" step="1" oninput="document.getElementById('scanCountVal').textContent=this.value" style="width:140px">
           <span id="scanCountVal" style="font-family:var(--mono);font-size:14px;color:var(--accent);min-width:24px">10</span>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           <label style="font-family:var(--mono);font-size:12px;color:var(--text)">INTERVAL</label>
-          <input type="range" id="scanIntervalSlider" min="0.5" max="5" value="1" step="0.5" oninput="document.getElementById('scanIntervalVal').textContent=this.value+'s'" style="width:140px">
-          <span id="scanIntervalVal" style="font-family:var(--mono);font-size:14px;color:var(--accent);min-width:32px">1s</span>
+          <input type="range" id="scanIntervalSlider" min="0.2" max="5" value="0.2" step="0.1" oninput="document.getElementById('scanIntervalVal').textContent=this.value+'s'" style="width:140px">
+          <span id="scanIntervalVal" style="font-family:var(--mono);font-size:14px;color:var(--accent);min-width:32px">0.2s</span>
         </div>
         <div style="display:flex;gap:8px;margin-top:8px">
           <button class="btn" id="btnStartScan" onclick="startAutoScan()" style="font-size:15px;padding:10px 28px;border-color:var(--ok);color:var(--ok)">▶ Start</button>
@@ -305,68 +126,44 @@
     </div>
   </div>
 
-  <!-- ── RIGHT TOP: METRICS + CONTROLS ── -->
+  <!-- RIGHT TOP -->
   <div class="side" style="border-bottom:1px solid var(--border);">
-    <!-- Metrics -->
     <div class="metrics">
-      <div class="metric">
-        <div class="label">Contours</div>
-        <div class="value" id="mContours">—</div>
-      </div>
-      <div class="metric">
-        <div class="label">Pipeline</div>
-        <div class="value" id="mPipeline">—</div>
-        <div class="sub">ms</div>
-      </div>
-      <div class="metric">
-        <div class="label">Stage</div>
-        <div class="value" id="mStage">—</div>
-      </div>
-      <div class="metric">
-        <div class="label">Unit</div>
-        <div class="value" id="mUnit" style="font-size:16px">—</div>
-      </div>
+      <div class="metric"><div class="label">Contours</div><div class="value" id="mContours">—</div></div>
+      <div class="metric"><div class="label">Pipeline</div><div class="value" id="mPipeline">—</div><div class="sub">ms</div></div>
+      <div class="metric"><div class="label">Stage</div><div class="value" id="mStage">—</div></div>
+      <div class="metric"><div class="label">Unit</div><div class="value" id="mUnit" style="font-size:16px">—</div></div>
     </div>
-
-    <!-- Unit toggle -->
-    <div style="padding:10px 14px 6px; border-bottom:1px solid var(--border)">
+    <div style="padding:10px 14px 6px;border-bottom:1px solid var(--border)">
       <div class="panel-header" style="padding:0 0 8px 0">Display Unit</div>
       <div class="unit-toggle">
         <button class="unit-btn active" id="unitIn" onclick="setUnit('inches')">inches</button>
         <button class="unit-btn" id="unitMm" onclick="setUnit('mm')">mm</button>
       </div>
     </div>
-
-    <!-- Canny controls -->
     <div class="controls">
       <div class="panel-header" style="padding:0 0 10px 0">Canny Thresholds</div>
       <div class="control-row">
         <span class="control-label">Low</span>
-        <input type="range" id="cannyLow" min="0" max="255" value="50"
-               oninput="cannyChanged()">
+        <input type="range" id="cannyLow" min="0" max="255" value="50" oninput="cannyChanged()">
         <span class="control-val" id="cannyLowVal">50</span>
       </div>
       <div class="control-row">
         <span class="control-label">High</span>
-        <input type="range" id="cannyHigh" min="0" max="255" value="150"
-               oninput="cannyChanged()">
+        <input type="range" id="cannyHigh" min="0" max="255" value="150" oninput="cannyChanged()">
         <span class="control-val" id="cannyHighVal">150</span>
       </div>
     </div>
-
-    <!-- Display controls -->
     <div class="controls" style="border-top:1px solid var(--border)">
       <div class="panel-header" style="padding:0 0 10px 0">Display Controls</div>
       <div class="control-row">
         <span class="control-label">Max contours</span>
-        <input type="range" id="maxContours" min="1" max="50" value="10"
-               oninput="maxContoursChanged()">
+        <input type="range" id="maxContours" min="1" max="50" value="10" oninput="maxContoursChanged()">
         <span class="control-val" id="maxContoursVal">10</span>
       </div>
       <div class="control-row">
         <span class="control-label">Refresh rate</span>
-        <input type="range" id="pollRate" min="500" max="5000" step="500" value="2000"
-               oninput="pollRateChanged()">
+        <input type="range" id="pollRate" min="500" max="5000" step="500" value="2000" oninput="pollRateChanged()">
         <span class="control-val" id="pollRateVal">2s</span>
       </div>
       <div class="control-row">
@@ -374,15 +171,13 @@
         <button class="btn" id="btnFreeze" onclick="toggleFreeze()" style="flex:1;text-align:center">Freeze Frame</button>
       </div>
     </div>
-
-    <!-- Calibration -->
     <div class="cal-section">
       <div class="panel-header" style="padding:0 0 10px 0">
         Spatial Calibration
         <span id="calBadge" class="badge" style="color:var(--warn);border-color:var(--warn)">UNCAL</span>
       </div>
       <div style="font-size:11px;color:var(--dim);line-height:1.5;margin-bottom:6px">
-        Measure a reference object in the snapshot, enter the pixel distance and known real size.
+        Measure a reference object, enter pixel distance and real size.
       </div>
       <div class="control-row">
         <span class="control-label">Px dist</span>
@@ -396,59 +191,65 @@
         </select>
       </div>
       <div class="cal-row">
-        <button class="btn action" style="width:100%;text-align:center" onclick="submitCalibration()">
-          Apply Calibration
-        </button>
+        <button class="btn action" style="width:100%;text-align:center" onclick="submitCalibration()">Apply Calibration</button>
       </div>
     </div>
-
-    <div class="cal-status uncalibrated" id="calStatus">
-      ○ NOT CALIBRATED — measurements in pixels
-    </div>
+    <div class="cal-status uncalibrated" id="calStatus">○ NOT CALIBRATED — measurements in pixels</div>
   </div>
 
-  <!-- ── RIGHT BOTTOM: CONTOUR TABLE ── -->
+  <!-- RIGHT BOTTOM -->
   <div class="side" style="grid-row:2">
-    <div class="panel-header">
-      Contours
-      <span class="badge" id="contourBadge">0</span>
-    </div>
-    <div class="contour-list" id="contourList">
-      <div class="empty-state">Waiting for data…</div>
-    </div>
+    <div class="panel-header">Contours <span class="badge" id="contourBadge">0</span></div>
+    <div class="contour-list" id="contourList"><div class="empty-state">Waiting for data…</div></div>
   </div>
 
 </div>
-
 <div id="toast"></div>
 
 <script>
 // ── Config ──────────────────────────────────────────────────────────────────
-const POLL_RESULTS_MS  = 2000;
-const POLL_STATUS_MS   = 3000;
-const CANNY_DEBOUNCE   = 600;
-const MAX_DISPLAY_CONTOURS = 10;
-
+const POLL_RESULTS_MS = 2000;
+const POLL_STATUS_MS  = 3000;
+const CANNY_DEBOUNCE  = 600;
+const STREAM_TIMEOUT_MS = 5000;   // reconnect if no frame in 5s
 const DEPTH_COLORS = ['#00e676','#00e5ff','#ff9100','#ff1744'];
 
 // ── State ────────────────────────────────────────────────────────────────────
-let currentUnit = 'inches';
-let cannyTimer  = null;
-let frameCount  = 0;
-let lastFpsTime = Date.now();
-let serverStart = null;
+let currentUnit    = 'inches';
+let cannyTimer     = null;
+let frameCount     = 0;
+let lastFpsTime    = Date.now();
+let lastFrameTime  = Date.now();
+let serverStart    = null;
+let maxContours    = 10;
+let pollRateMs     = 2000;
+let frozen         = false;
+let resultsInterval = null;
+let streamMode     = 'annotated';
 
-// ── Stream toggle ─────────────────────────────────────────────────────────
-function setStream(mode) {
+// ── Stream with auto-reconnect ───────────────────────────────────────────────
+function getStreamSrc(mode) {
+  return (mode === 'edges' ? '/stream/edges' : '/stream') + '?t=' + Date.now();
+}
+
+function reconnectStream() {
   const img = document.getElementById('videoFeed');
-  img.src = mode === 'edges' ? '/stream/edges' : '/stream';
+  img.src = getStreamSrc(streamMode);
+  lastFrameTime = Date.now();
+}
+
+function setStream(mode) {
+  streamMode = mode;
+  reconnectStream();
   document.getElementById('btnAnnotated').classList.toggle('active', mode === 'annotated');
   document.getElementById('btnEdges').classList.toggle('active', mode === 'edges');
 }
 
-// Track stream FPS
-document.getElementById('videoFeed').addEventListener('load', () => {
+// Track FPS + detect stalled stream
+const videoFeed = document.getElementById('videoFeed');
+videoFeed.addEventListener('load', () => {
   frameCount++;
+  lastFrameTime = Date.now();
   const now = Date.now();
   if (now - lastFpsTime >= 1000) {
     document.getElementById('fpsBadge').textContent = frameCount + ' fps';
@@ -456,6 +257,16 @@ document.getElementById('videoFeed').addEventListener('load', () => {
     lastFpsTime = now;
   }
 });
+videoFeed.addEventListener('error', () => {
+  setTimeout(reconnectStream, 2000);
+});
+
+// Watchdog: reconnect if no frame received in STREAM_TIMEOUT_MS
+setInterval(() => {
+  if (!frozen && Date.now() - lastFrameTime > STREAM_TIMEOUT_MS) {
+    reconnectStream();
+  }
+}, 2000);
 
 // ── Unit toggle ───────────────────────────────────────────────────────────
 function setUnit(unit) {
@@ -469,12 +280,6 @@ function setUnit(unit) {
 }
 
 // ── Display controls ─────────────────────────────────────────────────────
-let maxContours = 10;
-let pollRateMs = 2000;
-let frozen = false;
-let frozenResult = null;
-let resultsInterval = null;
-
 function maxContoursChanged() {
   maxContours = parseInt(document.getElementById('maxContours').value);
   document.getElementById('maxContoursVal').textContent = maxContours;
@@ -494,12 +299,12 @@ function toggleFreeze() {
   if (frozen) {
     btn.classList.add('active');
     btn.textContent = '⏸ Frozen';
-    const feed = document.getElementById('videoFeed');
-    feed.style.opacity = '0.7';
+    videoFeed.style.opacity = '0.7';
   } else {
     btn.classList.remove('active');
     btn.textContent = 'Freeze Frame';
-    document.getElementById('videoFeed').style.opacity = '1';
+    videoFeed.style.opacity = '1';
+    reconnectStream();
   }
 }
 
@@ -513,8 +318,8 @@ function cannyChanged() {
   cannyTimer = setTimeout(() => {
     fetch('/api/canny', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ low: parseInt(low), high: parseInt(high) })
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({low: parseInt(low), high: parseInt(high)})
     });
   }, CANNY_DEBOUNCE);
 }
@@ -524,312 +329,109 @@ function submitCalibration() {
   const px   = parseFloat(document.getElementById('calPx').value);
   const real = parseFloat(document.getElementById('calReal').value);
   const unit = document.getElementById('calUnit').value;
-
-  if (!px || !real || px <= 0 || real <= 0) {
-    toast('Enter valid pixel distance and real size', true);
-    return;
-  }
-
+  if (!px || !real || px <= 0 || real <= 0) { toast('Enter valid pixel distance and real size', true); return; }
   fetch('/api/calibrate/spatial', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ px_dist: px, real_dist: real, unit: unit })
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.calibrated) {
-      const ppm = d.px_per_mm.toFixed(3);
-      const ppi = d.px_per_inch.toFixed(3);
-      toast(`Calibrated: ${ppm} px/mm`);
-      updateCalStatus(true, d.px_per_mm, d.px_per_inch);
-    } else {
-      toast(d.error || 'Calibration failed', true);
-    }
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({px_dist:px, real_dist:real, unit:unit})
+  }).then(r=>r.json()).then(d => {
+    if (d.calibrated) { toast(`Calibrated: ${d.px_per_mm.toFixed(3)} px/mm`); updateCalStatus(true, d.px_per_mm, d.px_per_inch); }
+    else { toast(d.error || 'Calibration failed', true); }
   });
 }
 
 function updateCalStatus(calibrated, ppm, ppi) {
-  const el    = document.getElementById('calStatus');
+  const el = document.getElementById('calStatus');
   const badge = document.getElementById('calBadge');
   if (calibrated && ppm) {
-    el.className   = 'cal-status calibrated';
+    el.className = 'cal-status calibrated';
     el.textContent = `✓ ${ppm.toFixed(4)} px/mm  ·  ${(ppm/25.4).toFixed(4)} px/in`;
-    badge.textContent = 'CAL';
-    badge.style.color = 'var(--ok)';
-    badge.style.borderColor = 'var(--ok)';
+    badge.textContent = 'CAL'; badge.style.color = 'var(--ok)'; badge.style.borderColor = 'var(--ok)';
   } else {
-    el.className   = 'cal-status uncalibrated';
+    el.className = 'cal-status uncalibrated';
     el.textContent = '○ NOT CALIBRATED — measurements in pixels';
-    badge.textContent = 'UNCAL';
-    badge.style.color = 'var(--warn)';
-    badge.style.borderColor = 'var(--warn)';
+    badge.textContent = 'UNCAL'; badge.style.color = 'var(--warn)'; badge.style.borderColor = 'var(--warn)';
   }
 }
 
 // ── Snapshot ─────────────────────────────────────────────────────────────
 function takeSnapshot() {
   const a = document.createElement('a');
-  a.href = '/api/snapshot';
-  a.download = '';
-  a.click();
+  a.href = '/api/snapshot'; a.download = ''; a.click();
 }
 
 // ── Status poll ──────────────────────────────────────────────────────────
 function pollStatus() {
-  fetch('/api/status')
-    .then(r => r.json())
-    .then(d => {
-      const dot   = document.getElementById('liveDot');
-      const label = document.getElementById('liveLabel');
-      if (d.ok && d.camera_open) {
-        dot.className = 'dot live';
-        label.textContent = 'LIVE';
-      } else {
-        dot.className = 'dot warn';
-        label.textContent = d.ok ? 'CAM ERR' : 'OFFLINE';
-      }
-
-      if (!serverStart) serverStart = Date.now() - d.uptime_s * 1000;
-      const up = Math.floor((Date.now() - serverStart) / 1000);
-      const h = String(Math.floor(up/3600)).padStart(2,'0');
-      const m = String(Math.floor((up%3600)/60)).padStart(2,'0');
-      const s = String(up%60).padStart(2,'0');
-      document.getElementById('uptimeLabel').textContent = `${h}:${m}:${s}`;
-
-      document.getElementById('mStage').textContent = 'S' + d.stage;
-      document.getElementById('mUnit').textContent  = d.default_unit === 'inches' ? 'IN' : 'MM';
-
-      document.getElementById('cannyLow').value  = d.canny_low;
-      document.getElementById('cannyHigh').value = d.canny_high;
-      document.getElementById('cannyLowVal').textContent  = d.canny_low;
-      document.getElementById('cannyHighVal').textContent = d.canny_high;
-
-      currentUnit = d.default_unit;
-      document.getElementById('unitIn').classList.toggle('active', d.default_unit === 'inches');
-      document.getElementById('unitMm').classList.toggle('active', d.default_unit === 'mm');
-
-      updateCalStatus(d.calibrated, d.px_per_mm, d.px_per_inch);
-    })
-    .catch(() => {
-      document.getElementById('liveDot').className = 'dot';
-      document.getElementById('liveLabel').textContent = 'OFFLINE';
-    });
+  fetch('/api/status').then(r=>r.json()).then(d => {
+    const dot = document.getElementById('liveDot');
+    const label = document.getElementById('liveLabel');
+    if (d.ok && d.camera_open) { dot.className='dot live'; label.textContent='LIVE'; }
+    else { dot.className='dot warn'; label.textContent = d.ok ? 'CAM ERR' : 'OFFLINE'; }
+    if (!serverStart) serverStart = Date.now() - d.uptime_s * 1000;
+    const up = Math.floor((Date.now() - serverStart) / 1000);
+    const h = String(Math.floor(up/3600)).padStart(2,'0');
+    const m = String(Math.floor((up%3600)/60)).padStart(2,'0');
+    const s = String(up%60).padStart(2,'0');
+    document.getElementById('uptimeLabel').textContent = `${h}:${m}:${s}`;
+    document.getElementById('mStage').textContent = 'S' + d.stage;
+    document.getElementById('mUnit').textContent  = d.default_unit === 'inches' ? 'IN' : 'MM';
+    document.getElementById('cannyLow').value  = d.canny_low;
+    document.getElementById('cannyHigh').value = d.canny_high;
+    document.getElementById('cannyLowVal').textContent  = d.canny_low;
+    document.getElementById('cannyHighVal').textContent = d.canny_high;
+    currentUnit = d.default_unit;
+    document.getElementById('unitIn').classList.toggle('active', d.default_unit === 'inches');
+    document.getElementById('unitMm').classList.toggle('active', d.default_unit === 'mm');
+    updateCalStatus(d.calibrated, d.px_per_mm, d.px_per_inch);
+  }).catch(() => {
+    document.getElementById('liveDot').className = 'dot';
+    document.getElementById('liveLabel').textContent = 'OFFLINE';
+  });
 }
 
 // ── Results poll ─────────────────────────────────────────────────────────
 function pollResults() {
-  fetch('/api/results')
-    .then(r => r.json())
-    .then(d => {
-      if (d.error) return;
-
-      document.getElementById('mContours').textContent = d.contour_count;
-      document.getElementById('contourBadge').textContent = d.contour_count;
-      document.getElementById('mPipeline').textContent = d.pipeline_ms.toFixed(1);
-
-      renderContours(d.contours, d.calibrated);
-    })
-    .catch(() => {});
+  fetch('/api/results').then(r=>r.json()).then(d => {
+    if (d.error) return;
+    document.getElementById('mContours').textContent = d.contour_count;
+    document.getElementById('contourBadge').textContent = d.contour_count;
+    document.getElementById('mPipeline').textContent = d.pipeline_ms.toFixed(1);
+    renderContours(d.contours, d.calibrated);
+  }).catch(()=>{});
 }
 
 function renderContours(contours, calibrated) {
-  if (frozen) return; // Don't update table when frozen
+  if (frozen) return;
   const list = document.getElementById('contourList');
-
-  if (!contours || contours.length === 0) {
-    list.innerHTML = '<div class="empty-state">No contours detected</div>';
-    return;
-  }
-
-  // Sort by area descending, show only top N
-  const sorted = [...contours]
-    .sort((a, b) => b.area_px - a.area_px)
-    .slice(0, maxContours);
-
+  if (!contours || contours.length === 0) { list.innerHTML='<div class="empty-state">No contours detected</div>'; return; }
+  const sorted = [...contours].sort((a,b)=>b.area_px-a.area_px).slice(0, maxContours);
   let rows = '';
   for (const c of sorted) {
-    const color = DEPTH_COLORS[Math.min(c.depth, DEPTH_COLORS.length - 1)];
-    const pip   = `<span class="depth-pip" style="background:${color}"></span>`;
-
+    const color = DEPTH_COLORS[Math.min(c.depth, DEPTH_COLORS.length-1)];
+    const pip = `<span class="depth-pip" style="background:${color}"></span>`;
     let wStr, hStr;
-    if (calibrated && currentUnit === 'inches' && c.bbox_in) {
-      wStr = c.bbox_in.w.toFixed(4) + '"';
-      hStr = c.bbox_in.h.toFixed(4) + '"';
-    } else if (calibrated && currentUnit === 'mm' && c.bbox_mm) {
-      wStr = c.bbox_mm.w.toFixed(3) + 'mm';
-      hStr = c.bbox_mm.h.toFixed(3) + 'mm';
-    } else {
-      wStr = c.bbox_px.w + 'px';
-      hStr = c.bbox_px.h + 'px';
-    }
-
+    if (calibrated && currentUnit==='inches' && c.bbox_in) { wStr=c.bbox_in.w.toFixed(4)+'"'; hStr=c.bbox_in.h.toFixed(4)+'"'; }
+    else if (calibrated && currentUnit==='mm' && c.bbox_mm) { wStr=c.bbox_mm.w.toFixed(3)+'mm'; hStr=c.bbox_mm.h.toFixed(3)+'mm'; }
+    else { wStr=c.bbox_px.w+'px'; hStr=c.bbox_px.h+'px'; }
     let areaStr;
-    if (calibrated && currentUnit === 'inches' && c.area_in2 != null) {
-      areaStr = c.area_in2.toFixed(4);
-    } else if (calibrated && currentUnit === 'mm' && c.area_mm2 != null) {
-      areaStr = c.area_mm2.toFixed(3);
-    } else {
-      areaStr = Math.round(c.area_px);
-    }
-
-    rows += `<tr>
-      <td>${pip}${c.id}</td>
-      <td>${c.depth}</td>
-      <td>${wStr}</td>
-      <td>${hStr}</td>
-      <td>${areaStr}</td>
-    </tr>`;
+    if (calibrated && currentUnit==='inches' && c.area_in2!=null) areaStr=c.area_in2.toFixed(4);
+    else if (calibrated && currentUnit==='mm' && c.area_mm2!=null) areaStr=c.area_mm2.toFixed(3);
+    else areaStr=Math.round(c.area_px);
+    rows += `<tr><td>${pip}${c.id}</td><td>${c.depth}</td><td>${wStr}</td><td>${hStr}</td><td>${areaStr}</td></tr>`;
   }
-
-  list.innerHTML = `<table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>D</th>
-        <th>W</th>
-        <th>H</th>
-        <th>Area</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  list.innerHTML = `<table><thead><tr><th>#</th><th>D</th><th>W</th><th>H</th><th>Area</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 // ── Toast ────────────────────────────────────────────────────────────────
 let toastTimer;
-function toast(msg, isError = false) {
+function toast(msg, isError=false) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.className = 'show' + (isError ? ' error' : '');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.className = ''; }, 2800);
+  toastTimer = setTimeout(()=>{ el.className=''; }, 2800);
 }
 
 // ── 3D Scan ──────────────────────────────────────────────────────────────
-let activeScanId = null;
-let scanFrameCount = 0;
-
-function openScanPanel() {
-  document.getElementById('scanOverlay').style.display = 'flex';
-  document.getElementById('btnScan').classList.add('active');
-  // Start session
-  fetch('/api/scan/start', { method: 'POST' })
-    .then(r => r.json())
-    .then(d => {
-      if (d.error) { toast(d.error, true); closeScanPanel(); return; }
-      activeScanId = d.session_id;
-      scanFrameCount = 0;
-      document.getElementById('scanFrameCount').textContent = '0';
-      document.getElementById('scanStatus').textContent = 'Walk around the part. Press CAPTURE for each position.';
-      document.getElementById('btnFinishScan').disabled = true;
-      toast('Scan started — capture at least 10 frames');
-    });
-}
-
-function closeScanPanel() {
-  document.getElementById('scanOverlay').style.display = 'none';
-  document.getElementById('btnScan').classList.remove('active');
-  activeScanId = null;
-  scanFrameCount = 0;
-}
-
-function captureFrame() {
-  if (!activeScanId) return;
-  const btn = document.getElementById('btnCapture');
-  btn.disabled = true;
-  btn.textContent = '⏳ Capturing...';
-
-  fetch(`/api/scan/${activeScanId}/capture`, { method: 'POST' })
-    .then(r => r.json())
-    .then(d => {
-      if (d.error) { toast(d.error, true); }
-      else {
-        scanFrameCount = d.frame;
-        document.getElementById('scanFrameCount').textContent = scanFrameCount;
-        if (scanFrameCount >= 5) {
-          document.getElementById('btnFinishScan').disabled = false;
-        }
-        document.getElementById('scanStatus').textContent =
-          scanFrameCount < 10
-            ? `${scanFrameCount} frames — keep going, aim for 20-40`
-            : `${scanFrameCount} frames captured — finish when ready`;
-      }
-    })
-    .finally(() => {
-      btn.disabled = false;
-      btn.textContent = '📸 CAPTURE';
-    });
-}
-
-function finishScan() {
-  if (!activeScanId) return;
-  document.getElementById('scanStatus').textContent = '⏳ Reconstructing 3D model... this takes a few minutes';
-  document.getElementById('btnCapture').disabled = true;
-  document.getElementById('btnFinishScan').disabled = true;
-
-  fetch(`/api/scan/${activeScanId}/finish`, { method: 'POST' })
-    .then(r => r.json())
-    .then(d => {
-      if (d.error) { toast(d.error, true); return; }
-      toast('Reconstruction started — check status below');
-      pollScanStatus(activeScanId);
-    });
-}
-
-function cancelScan() {
-  if (activeScanId) {
-    fetch(`/api/scan/${activeScanId}/cancel`, { method: 'POST' });
-  }
-  closeScanPanel();
-}
-
-function pollScanStatus(sessionId) {
-  const interval = setInterval(() => {
-    fetch(`/api/scan/${sessionId}/status`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.status === 'complete') {
-          clearInterval(interval);
-          document.getElementById('scanStatus').textContent =
-            `✓ Complete! ${d.point_count.toLocaleString()} points`;
-          toast(`3D scan complete — ${d.point_count.toLocaleString()} points`);
-          // Add download link
-          const dl = document.createElement('a');
-          dl.href = `/api/scan/${sessionId}/pointcloud`;
-          dl.download = `scan_${sessionId}.ply`;
-          dl.style.cssText = 'color:var(--ok);font-family:var(--mono);font-size:11px';
-          dl.textContent = '⬇ Download .PLY';
-          document.getElementById('scanStatus').appendChild(document.createElement('br'));
-          document.getElementById('scanStatus').appendChild(dl);
-        } else if (d.status === 'error') {
-          clearInterval(interval);
-          document.getElementById('scanStatus').textContent = `✕ Error: ${d.error}`;
-          toast('Reconstruction failed: ' + d.error, true);
-        } else {
-          document.getElementById('scanStatus').textContent = '⏳ Reconstructing...';
-        }
-      });
-  }, 3000);
-}
-
-// Spacebar triggers capture when scan overlay is open
-document.addEventListener('keydown', e => {
-  if (e.code === 'Space' && activeScanId) {
-    e.preventDefault();
-    captureFrame();
-  }
-});
-
-// ── Init ─────────────────────────────────────────────────────────────────
-pollStatus();
-pollResults();
-setInterval(pollStatus, POLL_STATUS_MS);
-resultsInterval = setInterval(pollResults, pollRateMs);
-
-function rotateView(dir) {
-  fetch('/api/rotate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({direction: dir})});
-}
-
 function openScanPanel() {
   const o = document.getElementById('scanOverlay');
   o.style.display = 'flex';
@@ -845,35 +447,49 @@ function cancelScan() {
 }
 
 function startAutoScan() {
-  const count = parseInt(document.getElementById('scanCountSlider').value);
+  const count    = parseInt(document.getElementById('scanCountSlider').value);
   const interval = parseFloat(document.getElementById('scanIntervalSlider').value);
   document.getElementById('btnStartScan').disabled = true;
-  document.getElementById('btnStopScan').disabled = false;
+  document.getElementById('btnStopScan').disabled  = false;
   document.getElementById('scanStatus').textContent = 'Capturing...';
   fetch('/api/scan/start', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({count, interval})});
-  pollScanStatus();
+  pollScanProgress();
 }
 
 function stopAutoScan() {
   fetch('/api/scan/stop', {method:'POST'}).then(r=>r.json()).then(d=>{
-    document.getElementById('scanStatus').textContent = 'Stopped. ' + d.frames_captured + ' frames saved.';
+    document.getElementById('scanStatus').textContent = 'Stopped. ' + (d.frames_captured||0) + ' frames saved.';
     document.getElementById('btnStartScan').disabled = false;
-    document.getElementById('btnStopScan').disabled = true;
+    document.getElementById('btnStopScan').disabled  = true;
+  }).catch(()=>{
+    document.getElementById('btnStartScan').disabled = false;
+    document.getElementById('btnStopScan').disabled  = true;
   });
 }
 
-function pollScanStatus() {
+function pollScanProgress() {
   fetch('/api/scan/status').then(r=>r.json()).then(d=>{
-    document.getElementById('scanFrameCount').textContent = d.frames_captured;
+    document.getElementById('scanFrameCount').textContent = d.frames_captured || 0;
     if (d.active) {
-      setTimeout(pollScanStatus, 500);
+      setTimeout(pollScanProgress, 500);
     } else {
-      document.getElementById('scanStatus').textContent = 'Complete. ' + d.frames_captured + ' frames captured.';
+      document.getElementById('scanStatus').textContent = 'Complete. ' + (d.frames_captured||0) + ' frames captured.';
       document.getElementById('btnStartScan').disabled = false;
-      document.getElementById('btnStopScan').disabled = true;
+      document.getElementById('btnStopScan').disabled  = true;
     }
-  });
+  }).catch(()=>{ setTimeout(pollScanProgress, 1000); });
 }
+
+// ── Rotate ───────────────────────────────────────────────────────────────
+function rotateView(dir) {
+  fetch('/api/rotate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({direction:dir})});
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+pollStatus();
+pollResults();
+setInterval(pollStatus, POLL_STATUS_MS);
+resultsInterval = setInterval(pollResults, pollRateMs);
 </script>
 </body>
 </html>
