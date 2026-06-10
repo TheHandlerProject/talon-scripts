@@ -200,15 +200,15 @@ class Inspector:
         self, hierarchy: Optional[np.ndarray], n: int
     ) -> list[int]:
         """Walk RETR_TREE hierarchy to compute nesting depth for each contour."""
-        depths = [0] * max(n, 1)
+        depths = [0] * n
         if hierarchy is None or n == 0:
             return depths
 
         hier = hierarchy[0]  # shape (n, 4): [next, prev, child, parent]
 
         def walk(idx: int, depth: int):
-            while 0 <= idx < len(hier):
-                depths[idx] = depth
+            while idx >= 0 and idx < len(hier):
+                if idx < len(depths): depths[idx] = depth
                 child = hier[idx][2]
                 if child >= 0:
                     walk(child, depth + 1)

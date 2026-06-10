@@ -18,8 +18,8 @@ lens:
   camera_matrix: null
   dist_coeffs: null
 edge_detection:
-  canny_low: 73
-  canny_high: 105
+  canny_low: 54
+  canny_high: 65
   canny_aperture: 3
   blur_kernel: 5
   contour_mode: RETR_TREE

@@ -16,7 +16,7 @@ import yaml
 from flask import Flask, Response, jsonify, render_template, request, send_file
 
 from capture import CameraCapture
-from inspect import Inspector
+from inspector import Inspector
 
 logger = logging.getLogger(__name__)
 
