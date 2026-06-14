@@ -1,0 +1,27 @@
+{
+  "name": "Proper Paws Project",
+  "short_name": "PPP",
+  "description": "The Handler Project — 30-Day Dog Training Program",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c1c2e",
+  "theme_color": "#2d6a4f",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "health", "lifestyle"],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
