@@ -1,0 +1,19 @@
+# Mr. Anderson v4 Memory
+# Auto-updated after each task. Load before every invocation.
+
+## Infrastructure
+- Primary: Zion (100.114.75.23)
+- Secondary: Wonderwoman (100.109.52.96)
+- Cloudflare tunnel: 4556096a-7340-4bde-b9f9-7523f50c313e
+- GitHub: TheHandlerProject/talon-scripts (Zion branch)
+
+## Active Projects
+- PPP app: Proper Paws Protocol, React PWA at ppp.sfer.me
+- Metrology inspection station: ~/inspection on Zion
+
+## Operator
+- Name: Evan
+- Business: The Handler Project, Vancouver WA
+- Preferences: terse responses, autonomous execution, no repeated briefings
+
+## Session Log
